@@ -21,6 +21,7 @@ export default function DaiBieuShell({
 
   const [newTaskCount, setNewTaskCount] = useState(0);
   const [newTaskIds, setNewTaskIds] = useState<number[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   /* =====================================================
      KIỂM TRA NHIỆM VỤ MỚI
@@ -88,7 +89,7 @@ export default function DaiBieuShell({
 
     /* ===================================================
        XÁC ĐỊNH NHIỆM VỤ MỚI
-    =================================================== */
+    ====================================================== */
 
     const unviewedTasks = tasks.filter(
       (task) => !viewedTaskIds.includes(task.id)
@@ -110,9 +111,15 @@ export default function DaiBieuShell({
   }, []);
 
   /* =====================================================
-     NHẤP VÀO "NHIỆM VỤ CỦA TÔI"
+     ĐÓNG MENU MOBILE KHI CHUYỂN TRANG
+  ====================================================== */
 
-     Đánh dấu các nhiệm vụ đang báo mới là đã xem
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  /* =====================================================
+     NHIỆM VỤ CỦA TÔI
   ====================================================== */
 
   function openMyTasks() {
@@ -169,22 +176,22 @@ export default function DaiBieuShell({
       return;
     }
 
+    setMobileMenuOpen(false);
+
     router.replace("/dang-nhap");
     router.refresh();
   }
 
-  return (
-    <div className="flex min-h-screen bg-slate-100">
+  /* =====================================================
+     SIDEBAR CONTENT
+  ====================================================== */
 
-      {/* =====================================================
-          SIDEBAR ĐẠI BIỂU
-      ====================================================== */}
-
-      <aside className="hidden min-h-screen w-64 shrink-0 flex-col border-r border-emerald-100 bg-white lg:flex">
-
-        {/* ===================================================
-            HEADER
-        =================================================== */}
+  function SidebarContent() {
+    return (
+      <>
+        {/* =================================================
+            HEADER SIDEBAR
+        ================================================= */}
 
         <div className="shrink-0 border-b border-emerald-700 bg-emerald-800 px-4 py-5">
 
@@ -215,9 +222,9 @@ export default function DaiBieuShell({
         </div>
 
 
-        {/* ===================================================
+        {/* =================================================
             THÔNG TIN ĐẠI BIỂU
-        =================================================== */}
+        ================================================= */}
 
         <div className="shrink-0 border-b border-emerald-100 px-4 py-4">
 
@@ -232,14 +239,14 @@ export default function DaiBieuShell({
         </div>
 
 
-        {/* ===================================================
+        {/* =================================================
             MENU
-        =================================================== */}
+        ================================================= */}
 
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-4">
 
           {/* =================================================
-              TRANG CHỦ
+              TỔNG QUAN
           ================================================= */}
 
           <Link
@@ -261,7 +268,7 @@ export default function DaiBieuShell({
               ⌂
             </span>
 
-            <span className="ml-3">
+            <span className="ml-3 min-w-0">
               Tổng quan chung
             </span>
 
@@ -291,7 +298,7 @@ export default function DaiBieuShell({
               ▤
             </span>
 
-            <span className="ml-3">
+            <span className="ml-3 min-w-0">
               Phòng họp
             </span>
 
@@ -321,17 +328,18 @@ export default function DaiBieuShell({
               ▣
             </span>
 
-            <span className="ml-3">
+            <span className="ml-3 min-w-0">
               Lịch công tác
             </span>
 
           </Link>
 
- {/* =================================================
-              XIN Ý KIẾN
+
+          {/* =================================================
+              PHIẾU XIN Ý KIẾN
           ================================================= */}
 
-<Link
+          <Link
             href="/dai-bieu/xin-y-kien"
             className={`group flex cursor-pointer items-center rounded-xl px-3 py-2.5 text-sm font-medium transition ${
               pathname === "/dai-bieu/xin-y-kien"
@@ -350,11 +358,13 @@ export default function DaiBieuShell({
               ✓
             </span>
 
-            <span className="ml-3">
+            <span className="ml-3 min-w-0">
               Phiếu xin ý kiến
             </span>
 
           </Link>
+
+
           {/* =================================================
               NHIỆM VỤ CỦA TÔI
           ================================================= */}
@@ -369,8 +379,6 @@ export default function DaiBieuShell({
             }`}
           >
 
-            {/* DẤU * KHI CÓ NHIỆM VỤ MỚI */}
-
             {newTaskCount > 0 && (
               <span
                 className="absolute left-1 top-0 text-lg font-bold leading-none text-red-600"
@@ -379,8 +387,6 @@ export default function DaiBieuShell({
                 *
               </span>
             )}
-
-            {/* ICON */}
 
             <span
               className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base transition ${
@@ -391,9 +397,6 @@ export default function DaiBieuShell({
             >
               📌
             </span>
-
-
-            {/* NỘI DUNG NÚT */}
 
             <span className="ml-3 min-w-0">
 
@@ -411,15 +414,12 @@ export default function DaiBieuShell({
 
           </button>
 
-
-         
-
         </nav>
 
 
-        {/* =====================================================
-            ĐĂNG XUẤT - LUÔN Ở ĐÁY SIDEBAR
-        ====================================================== */}
+        {/* =================================================
+            ĐĂNG XUẤT
+        ================================================= */}
 
         <div className="shrink-0 border-t border-emerald-100 bg-slate-50 px-2 py-3">
 
@@ -440,16 +440,139 @@ export default function DaiBieuShell({
           </button>
 
         </div>
+      </>
+    );
+  }
+
+
+  /* =====================================================
+     RENDER
+  ====================================================== */
+
+  return (
+    <div className="flex min-h-screen min-w-0 bg-slate-100">
+
+      {/* =================================================
+          SIDEBAR DESKTOP + IPAD NGANG
+          
+          lg = từ 1024px trở lên
+      ================================================= */}
+
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-emerald-100 bg-white lg:flex">
+
+        <SidebarContent />
 
       </aside>
 
 
-      {/* =====================================================
-          NỘI DUNG
-      ====================================================== */}
+      {/* =================================================
+          THANH HEADER MOBILE / IPAD DỌC
+          
+          Hiển thị dưới lg.
+          
+          Đây là phần người dùng sẽ luôn nhìn thấy
+          trên điện thoại.
+      ================================================= */}
 
-      <main className="min-w-0 flex-1">
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center border-b border-emerald-700 bg-emerald-800 px-3 shadow-sm lg:hidden">
+
+        {/* NÚT ☰ */}
+
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Mở menu Đại biểu"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-xl text-white transition hover:bg-emerald-600"
+        >
+          ☰
+        </button>
+
+
+        {/* LOGO */}
+
+        <div className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white">
+
+          <img
+            src="/logo-doan.png"
+            alt="Logo Đoàn"
+            className="h-7 w-7 object-contain"
+          />
+
+        </div>
+
+
+        {/* TIÊU ĐỀ */}
+
+        <div className="ml-2 min-w-0">
+
+          <p className="truncate text-sm font-bold text-white">
+            ĐẠI BIỂU
+          </p>
+
+          <p className="truncate text-[10px] text-emerald-100">
+            Phòng họp không giấy
+          </p>
+
+        </div>
+
+      </header>
+
+
+      {/* =================================================
+          LỚP NỀN MOBILE
+      ================================================= */}
+
+      {mobileMenuOpen && (
+
+        <button
+          type="button"
+          aria-label="Đóng menu"
+          onClick={() => setMobileMenuOpen(false)}
+          className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden"
+        />
+
+      )}
+
+
+      {/* =================================================
+          SIDEBAR MOBILE + IPAD DỌC
+      ================================================= */}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-emerald-100 bg-white shadow-2xl transition-transform duration-200 lg:hidden ${
+          mobileMenuOpen
+            ? "translate-x-0"
+            : "-translate-x-full"
+        }`}
+      >
+
+        {/* NÚT ĐÓNG */}
+
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-label="Đóng menu Đại biểu"
+          className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-xl text-slate-500 shadow-sm hover:text-slate-700"
+        >
+          ×
+        </button>
+
+        <SidebarContent />
+
+      </aside>
+
+
+      {/* =================================================
+          NỘI DUNG
+
+          Trên mobile/iPad dọc:
+          chừa 56px phía trên cho mobile header.
+      ================================================= */}
+
+      <main className="min-w-0 flex-1 pt-14 lg:pt-0">
+
         {children}
+
       </main>
 
     </div>
