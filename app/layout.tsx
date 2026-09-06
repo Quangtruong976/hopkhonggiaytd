@@ -3,8 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Phòng họp không giấy",
-  description:
-    "Hệ thống quản lý cuộc họp và điều hành công việc",
+  description: "Hệ thống Phòng họp không giấy",
 };
 
 export default function RootLayout({
