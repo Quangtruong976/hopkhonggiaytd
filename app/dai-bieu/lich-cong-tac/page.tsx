@@ -471,70 +471,69 @@ export default function DaiBieuLichCongTacPage() {
           HEADER
       ===================================================== */}
 
-<header className="border-b border-emerald-600 bg-emerald-800 text-white">
+      <header className="border-b border-emerald-600 bg-emerald-800 text-white">
 
-<div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
-  {/* BÊN TRÁI */}
+          {/* BÊN TRÁI */}
 
-  <div className="min-w-0">
+          <div className="min-w-0">
 
-    <h1 className="text-xl font-bold tracking-wide">
-      PHÒNG HỌP KHÔNG GIẤY
-    </h1>
+            <h1 className="text-xl font-bold tracking-wide">
+              PHÒNG HỌP KHÔNG GIẤY
+            </h1>
 
-    <p className="mt-0.5 text-sm text-emerald-100">
-      Trang thông tin dành cho đại biểu
-    </p>
-
-  </div>
-
-
-  {/* BÊN PHẢI - XIN CHÀO ĐẠI BIỂU */}
-{/* TÀI KHOẢN ĐẠI BIỂU */}
-
-<Link
-          href="/dai-bieu/tai-khoan"
-          className="group hidden items-center gap-3 rounded-xl px-3 py-1.5 transition hover:bg-emerald-700 md:flex"
-        >
-
-          <div className="text-right">
-
-            <p className="text-[11px] text-emerald-100">
-              Xin chào,
-            </p>
-
-            <p className="text-sm font-semibold text-white">
-              {currentUserName || "Đang tải..."}
+            <p className="mt-0.5 text-sm text-emerald-100">
+              Trang thông tin dành cho đại biểu
             </p>
 
           </div>
 
 
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white transition group-hover:bg-emerald-500">
+          {/* TÀI KHOẢN ĐẠI BIỂU */}
 
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              className="h-5 w-5"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
-              />
-            </svg>
+          <Link
+            href="/dai-bieu/tai-khoan"
+            className="group hidden items-center gap-3 rounded-xl px-3 py-1.5 transition hover:bg-emerald-700 md:flex"
+          >
 
-          </div>
+            <div className="text-right">
 
-        </Link>
+              <p className="text-[11px] text-emerald-100">
+                Xin chào,
+              </p>
 
-</div>
+              <p className="text-sm font-semibold text-white">
+                {currentUserName || "Đang tải..."}
+              </p>
 
-</header>
+            </div>
+
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white transition group-hover:bg-emerald-500">
+
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
+                />
+              </svg>
+
+            </div>
+
+          </Link>
+
+        </div>
+
+      </header>
 
 
       {/* =====================================================
@@ -584,7 +583,7 @@ export default function DaiBieuLichCongTacPage() {
 
             {/* ĐIỀU HƯỚNG */}
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
 
               <button
                 type="button"
@@ -610,9 +609,9 @@ export default function DaiBieuLichCongTacPage() {
                 Hôm nay
               </button>
 
-              <div className="ml-1">
+              <div className="ml-1 min-w-0">
 
-                <div className="text-sm font-normal text-emerald-600">
+                <div className="truncate text-sm font-normal text-emerald-600">
                   {getHeaderTitle()}
                 </div>
 
@@ -623,7 +622,7 @@ export default function DaiBieuLichCongTacPage() {
 
             {/* NGÀY / TUẦN */}
 
-            <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <div className="flex shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-1">
 
               <button
                 type="button"
@@ -691,205 +690,425 @@ export default function DaiBieuLichCongTacPage() {
 
 
           {/* =================================================
-              WEEK VIEW
+              WEEK VIEW - MOBILE
+              
+              Điện thoại / iPad dọc:
+              Ngày nằm dọc
+              Sáng / Chiều nằm ngang
           ================================================= */}
 
           {!loading &&
             !error &&
             view === "week" && (
 
-              <div className="p-4">
+              <>
+                {/* -------------------------------------------------
+                    MOBILE WEEK
+                ------------------------------------------------- */}
 
-                {/* DAY HEADER */}
+                <div className="lg:hidden p-3">
 
-                <div className="grid grid-cols-[55px_repeat(7,minmax(70px,1fr))] border-b border-l border-t border-slate-200">
+                  {/* HEADER */}
 
-                  <div className="border-r border-slate-200 bg-slate-50 p-3 text-center text-xs font-bold text-slate-500">
-                    BUỔI
+                  <div className="grid grid-cols-[72px_minmax(0,1fr)_minmax(0,1fr)] overflow-hidden rounded-t-xl border border-slate-200">
+
+                    <div className="flex items-center justify-center border-r border-slate-200 bg-slate-50 px-1 py-3 text-[10px] font-bold text-slate-500">
+                      NGÀY
+                    </div>
+
+                    <div className="flex items-center justify-center border-r border-slate-200 bg-amber-50 py-3 text-xs font-bold text-amber-700">
+                      Sáng
+                    </div>
+
+                    <div className="flex items-center justify-center bg-blue-50 py-3 text-xs font-bold text-blue-700">
+                      Chiều
+                    </div>
+
                   </div>
 
-                  {weekDates.map(
-                    (date) => {
 
-                      const dateString =
-                        dateToString(
-                          date
-                        );
+                  {/* 7 NGÀY */}
 
-                      const isToday =
-                        dateString ===
-                        dateToString(
-                          new Date()
-                        );
+                  <div className="overflow-hidden rounded-b-xl border-x border-b border-slate-200">
 
-                      return (
+                    {weekDates.map(
+                      (date) => {
 
-                        <div
-                          key={dateString}
-                          className={`border-r border-slate-200 p-3 text-center ${
-                            isToday
-                              ? "bg-emerald-50"
-                              : "bg-slate-50"
-                          }`}
-                        >
+                        const dateString =
+                          dateToString(
+                            date
+                          );
 
-                          <div className="text-xs font-bold text-slate-600">
+                        const isToday =
+                          dateString ===
+                          dateToString(
+                            new Date()
+                          );
 
-                            {date.toLocaleDateString(
-                              "vi-VN",
-                              {
-                                weekday:
-                                  "short",
-                              }
-                            )}
+                        const morningSchedules =
+                          getSchedulesForDate(
+                            dateString
+                          ).filter(
+                            isMorning
+                          );
 
-                          </div>
+                        const afternoonSchedules =
+                          getSchedulesForDate(
+                            dateString
+                          ).filter(
+                            (item) =>
+                              !isMorning(
+                                item
+                              )
+                          );
+
+                        return (
 
                           <div
-                            className={`mt-1 text-sm font-semibold ${
-                              isToday
-                                ? "text-emerald-700"
-                                : "text-slate-800"
-                            }`}
+                            key={dateString}
+                            className="grid grid-cols-[72px_minmax(0,1fr)_minmax(0,1fr)] border-b border-slate-200 last:border-b-0"
                           >
 
-                            {shortDate(
-                              dateString
-                            )}
+                            {/* NGÀY */}
 
-                          </div>
+                            <div
+                              className={`flex min-h-[112px] flex-col items-center justify-center border-r border-slate-200 px-1 py-2 ${
+                                isToday
+                                  ? "bg-emerald-50"
+                                  : "bg-slate-50"
+                              }`}
+                            >
 
-                          {isToday && (
+                              <div className="text-[10px] font-bold uppercase text-slate-500">
+                                {date.toLocaleDateString(
+                                  "vi-VN",
+                                  {
+                                    weekday:
+                                      "short",
+                                  }
+                                )}
+                              </div>
 
-                            <div className="mt-1 text-[10px] font-semibold text-emerald-600">
+                              <div
+                                className={`mt-1 text-lg font-bold ${
+                                  isToday
+                                    ? "text-emerald-700"
+                                    : "text-slate-800"
+                                }`}
+                              >
+                                {String(
+                                  date.getDate()
+                                ).padStart(
+                                  2,
+                                  "0"
+                                )}
+                              </div>
 
-                              Hôm nay
+                              <div className="text-[10px] text-slate-400">
+                                {String(
+                                  date.getMonth() +
+                                    1
+                                ).padStart(
+                                  2,
+                                  "0"
+                                )}
+                              </div>
+
+                              {isToday && (
+                                <span className="mt-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[8px] font-bold text-white">
+                                  HÔM NAY
+                                </span>
+                              )}
 
                             </div>
 
-                          )}
 
-                        </div>
+                            {/* SÁNG */}
 
-                      );
+                            <div className="min-w-0 border-r border-slate-200 bg-white p-1.5">
 
-                    }
-                  )}
+                              {morningSchedules.length ===
+                              0 ? (
 
-                </div>
+                                <div className="flex min-h-[96px] items-center justify-center text-xs text-slate-300">
+                                  —
+                                </div>
+
+                              ) : (
+
+                                <div className="space-y-1.5">
+
+                                  {morningSchedules.map(
+                                    (item) => (
+
+                                      <ScheduleCard
+                                        key={item.id}
+                                        schedule={item}
+                                        selected={
+                                          selectedScheduleId ===
+                                          item.id
+                                        }
+                                        onSelect={
+                                          selectSchedule
+                                        }
+                                      />
+
+                                    )
+                                  )}
+
+                                </div>
+
+                              )}
+
+                            </div>
 
 
-                {/* =================================================
-                    MORNING
-                ================================================= */}
+                            {/* CHIỀU */}
 
-                <div className="grid grid-cols-[55px_repeat(7,minmax(70px,1fr))] border-l border-b border-slate-200">
+                            <div className="min-w-0 bg-white p-1.5">
 
-                  <div className="flex min-h-[150px] items-start justify-center border-r border-slate-200 bg-slate-50 p-4">
+                              {afternoonSchedules.length ===
+                              0 ? (
 
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                                <div className="flex min-h-[96px] items-center justify-center text-xs text-slate-300">
+                                  —
+                                </div>
 
-                      Sáng
+                              ) : (
 
-                    </span>
+                                <div className="space-y-1.5">
+
+                                  {afternoonSchedules.map(
+                                    (item) => (
+
+                                      <ScheduleCard
+                                        key={item.id}
+                                        schedule={item}
+                                        selected={
+                                          selectedScheduleId ===
+                                          item.id
+                                        }
+                                        onSelect={
+                                          selectSchedule
+                                        }
+                                      />
+
+                                    )
+                                  )}
+
+                                </div>
+
+                              )}
+
+                            </div>
+
+                          </div>
+
+                        );
+
+                      }
+                    )}
 
                   </div>
 
-                  {weekDates.map(
-                    (date) => {
-
-                      const dateString =
-                        dateToString(
-                          date
-                        );
-
-                      const daySchedules =
-                        getSchedulesForDate(
-                          dateString
-                        ).filter(
-                          isMorning
-                        );
-
-                      return (
-
-                        <CalendarCell
-                          key={`morning-${dateString}`}
-                          schedules={
-                            daySchedules
-                          }
-                          selectedScheduleId={
-                            selectedScheduleId
-                          }
-                          onSelect={
-                            selectSchedule
-                          }
-                        />
-
-                      );
-
-                    }
-                  )}
-
                 </div>
 
 
-                {/* =================================================
-                    AFTERNOON
-                ================================================= */}
+                {/* -------------------------------------------------
+                    DESKTOP WEEK
+                    GIỮ NGUYÊN GIAO DIỆN CŨ
+                ------------------------------------------------- */}
 
-                <div className="grid grid-cols-[55px_repeat(7,minmax(70px,1fr))] border-l border-b border-slate-200">
+                <div className="hidden lg:block p-4">
 
-                  <div className="flex min-h-[150px] items-start justify-center border-r border-slate-200 bg-slate-50 p-4">
+                  {/* DAY HEADER */}
 
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                  <div className="grid grid-cols-[55px_repeat(7,minmax(70px,1fr))] border-b border-l border-t border-slate-200">
 
-                      Chiều
+                    <div className="border-r border-slate-200 bg-slate-50 p-3 text-center text-xs font-bold text-slate-500">
+                      BUỔI
+                    </div>
 
-                    </span>
+                    {weekDates.map(
+                      (date) => {
+
+                        const dateString =
+                          dateToString(
+                            date
+                          );
+
+                        const isToday =
+                          dateString ===
+                          dateToString(
+                            new Date()
+                          );
+
+                        return (
+
+                          <div
+                            key={dateString}
+                            className={`border-r border-slate-200 p-3 text-center ${
+                              isToday
+                                ? "bg-emerald-50"
+                                : "bg-slate-50"
+                            }`}
+                          >
+
+                            <div className="text-xs font-bold text-slate-600">
+
+                              {date.toLocaleDateString(
+                                "vi-VN",
+                                {
+                                  weekday:
+                                    "short",
+                                }
+                              )}
+
+                            </div>
+
+                            <div
+                              className={`mt-1 text-sm font-semibold ${
+                                isToday
+                                  ? "text-emerald-700"
+                                  : "text-slate-800"
+                              }`}
+                            >
+
+                              {shortDate(
+                                dateString
+                              )}
+
+                            </div>
+
+                            {isToday && (
+
+                              <div className="mt-1 text-[10px] font-semibold text-emerald-600">
+
+                                Hôm nay
+
+                              </div>
+
+                            )}
+
+                          </div>
+
+                        );
+
+                      }
+                    )}
 
                   </div>
 
-                  {weekDates.map(
-                    (date) => {
 
-                      const dateString =
-                        dateToString(
-                          date
+                  {/* MORNING */}
+
+                  <div className="grid grid-cols-[55px_repeat(7,minmax(70px,1fr))] border-l border-b border-slate-200">
+
+                    <div className="flex min-h-[150px] items-start justify-center border-r border-slate-200 bg-slate-50 p-4">
+
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+
+                        Sáng
+
+                      </span>
+
+                    </div>
+
+                    {weekDates.map(
+                      (date) => {
+
+                        const dateString =
+                          dateToString(
+                            date
+                          );
+
+                        const daySchedules =
+                          getSchedulesForDate(
+                            dateString
+                          ).filter(
+                            isMorning
+                          );
+
+                        return (
+
+                          <CalendarCell
+                            key={`morning-${dateString}`}
+                            schedules={
+                              daySchedules
+                            }
+                            selectedScheduleId={
+                              selectedScheduleId
+                            }
+                            onSelect={
+                              selectSchedule
+                            }
+                          />
+
                         );
 
-                      const daySchedules =
-                        getSchedulesForDate(
-                          dateString
-                        ).filter(
-                          (item) =>
-                            !isMorning(
-                              item
-                            )
+                      }
+                    )}
+
+                  </div>
+
+
+                  {/* AFTERNOON */}
+
+                  <div className="grid grid-cols-[55px_repeat(7,minmax(70px,1fr))] border-l border-b border-slate-200">
+
+                    <div className="flex min-h-[150px] items-start justify-center border-r border-slate-200 bg-slate-50 p-4">
+
+                      <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+
+                        Chiều
+
+                      </span>
+
+                    </div>
+
+                    {weekDates.map(
+                      (date) => {
+
+                        const dateString =
+                          dateToString(
+                            date
+                          );
+
+                        const daySchedules =
+                          getSchedulesForDate(
+                            dateString
+                          ).filter(
+                            (item) =>
+                              !isMorning(
+                                item
+                              )
+                          );
+
+                        return (
+
+                          <CalendarCell
+                            key={`afternoon-${dateString}`}
+                            schedules={
+                              daySchedules
+                            }
+                            selectedScheduleId={
+                              selectedScheduleId
+                            }
+                            onSelect={
+                              selectSchedule
+                            }
+                          />
+
                         );
 
-                      return (
+                      }
+                    )}
 
-                        <CalendarCell
-                          key={`afternoon-${dateString}`}
-                          schedules={
-                            daySchedules
-                          }
-                          selectedScheduleId={
-                            selectedScheduleId
-                          }
-                          onSelect={
-                            selectSchedule
-                          }
-                        />
-
-                      );
-
-                    }
-                  )}
+                  </div>
 
                 </div>
 
-              </div>
+              </>
 
             )}
 
@@ -902,7 +1121,7 @@ export default function DaiBieuLichCongTacPage() {
             !error &&
             view === "day" && (
 
-              <div className="p-5">
+              <div className="p-3 lg:p-5">
 
                 {daySchedules.length ===
                 0 ? (
@@ -926,7 +1145,7 @@ export default function DaiBieuLichCongTacPage() {
 
                         <div
                           key={item.id}
-                          className={`flex items-center gap-4 px-5 py-4 transition hover:bg-emerald-50/50 ${
+                          className={`px-3 py-3 transition hover:bg-emerald-50/50 lg:flex lg:items-center lg:gap-4 lg:px-5 lg:py-4 ${
                             index !==
                             daySchedules.length -
                               1
@@ -935,62 +1154,150 @@ export default function DaiBieuLichCongTacPage() {
                           }`}
                         >
 
-                          {/* THỜI GIAN */}
+                          {/* -------------------------------------------------
+                              MOBILE DAY VIEW
+                          ------------------------------------------------- */}
 
-                          <div className="w-32 shrink-0">
+                          <div className="lg:hidden">
 
-                            <p className="text-sm font-bold text-emerald-700">
+                            <div className="flex items-start gap-3">
 
-                              {formatTime(
-                                item.start_time
-                              )}
+                              {/* THỜI GIAN */}
 
-                              {item.end_time &&
-                                ` – ${formatTime(
-                                  item.end_time
-                                )}`}
+                              <div className="w-[58px] shrink-0 rounded-lg bg-emerald-50 px-2 py-2 text-center">
 
-                            </p>
+                                <p className="text-xs font-bold text-emerald-700">
+
+                                  {formatTime(
+                                    item.start_time
+                                  )}
+
+                                </p>
+
+                                {item.end_time && (
+
+                                  <p className="mt-0.5 text-[10px] text-emerald-600">
+
+                                    –
+                                    {" "}
+                                    {formatTime(
+                                      item.end_time
+                                    )}
+
+                                  </p>
+
+                                )}
+
+                              </div>
+
+
+                              {/* NỘI DUNG */}
+
+                              <div className="min-w-0 flex-1">
+
+                                <p className="text-sm font-semibold leading-5 text-slate-800">
+
+                                  {item.title}
+
+                                </p>
+
+                                <p className="mt-1 text-xs leading-4 text-slate-500">
+
+                                  📍{" "}
+                                  {item.location ||
+                                    "Chưa cập nhật"}
+
+                                </p>
+
+                              </div>
+
+                            </div>
+
+
+                            {/* CHI TIẾT */}
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                selectSchedule(
+                                  item.id
+                                )
+                              }
+                              className="mt-2 w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                            >
+
+                              Chi tiết →
+
+                            </button>
 
                           </div>
 
 
-                          {/* NỘI DUNG */}
+                          {/* -------------------------------------------------
+                              DESKTOP DAY VIEW
+                              GIỮ NGUYÊN
+                          ------------------------------------------------- */}
 
-                          <div className="min-w-0 flex-1">
+                          <div className="hidden lg:flex lg:w-full lg:items-center lg:gap-4">
 
-                            <p className="truncate text-sm font-semibold text-slate-800">
+                            {/* THỜI GIAN */}
 
-                              {item.title}
+                            <div className="w-32 shrink-0">
 
-                            </p>
+                              <p className="text-sm font-bold text-emerald-700">
 
-                            <p className="mt-1 truncate text-xs text-slate-500">
+                                {formatTime(
+                                  item.start_time
+                                )}
 
-                              📍{" "}
-                              {item.location ||
-                                "Chưa cập nhật"}
+                                {item.end_time &&
+                                  ` – ${formatTime(
+                                    item.end_time
+                                  )}`}
 
-                            </p>
+                              </p>
+
+                            </div>
+
+
+                            {/* NỘI DUNG */}
+
+                            <div className="min-w-0 flex-1">
+
+                              <p className="truncate text-sm font-semibold text-slate-800">
+
+                                {item.title}
+
+                              </p>
+
+                              <p className="mt-1 truncate text-xs text-slate-500">
+
+                                📍{" "}
+                                {item.location ||
+                                  "Chưa cập nhật"}
+
+                              </p>
+
+                            </div>
+
+
+                            {/* CHI TIẾT */}
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                selectSchedule(
+                                  item.id
+                                )
+                              }
+                              className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                            >
+
+                              Chi tiết →
+
+                            </button>
 
                           </div>
-
-
-                          {/* CHI TIẾT */}
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              selectSchedule(
-                                item.id
-                              )
-                            }
-                            className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                          >
-
-                            Chi tiết →
-
-                          </button>
 
                         </div>
 
@@ -1018,7 +1325,7 @@ export default function DaiBieuLichCongTacPage() {
 
             {/* HEADER */}
 
-            <div className="flex items-start justify-between bg-emerald-600 px-5 py-3">
+            <div className="flex items-start justify-between gap-3 bg-emerald-600 px-4 py-3 lg:px-5">
 
               <div className="min-w-0">
 
@@ -1026,7 +1333,7 @@ export default function DaiBieuLichCongTacPage() {
                   Chi tiết lịch công tác
                 </p>
 
-                <h2 className="mt-1 text-sm font-bold text-white">
+                <h2 className="mt-1 text-sm font-bold leading-5 text-white">
                   {selectedSchedule.title}
                 </h2>
 
@@ -1048,10 +1355,10 @@ export default function DaiBieuLichCongTacPage() {
 
 
             {/* =================================================
-                CHỈ HIỂN THỊ 4 THÔNG TIN
+                CHI TIẾT
             ================================================= */}
 
-            <div className="grid gap-5 p-5 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 p-4 lg:grid-cols-4 lg:gap-5 lg:p-5">
 
               <InfoItem
                 label="Ngày"
@@ -1103,6 +1410,7 @@ export default function DaiBieuLichCongTacPage() {
 
 /* =========================================================
    CALENDAR CELL
+   DESKTOP
 ========================================================= */
 
 function CalendarCell({
@@ -1152,6 +1460,7 @@ function CalendarCell({
     </div>
 
   );
+
 }
 
 
@@ -1176,7 +1485,7 @@ function ScheduleCard({
       onClick={() =>
         onSelect(schedule.id)
       }
-      className={`w-full rounded-lg border px-2 py-2 text-center transition ${
+      className={`w-full min-w-0 rounded-lg border px-2 py-2 text-center transition ${
         selected
           ? "border-emerald-400 bg-emerald-50 shadow-sm"
           : schedule.sourceType === "meeting"
@@ -1233,14 +1542,18 @@ function InfoItem({
 
   return (
 
-    <div>
+    <div className="min-w-0">
 
-      <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 lg:text-xs">
+
         {label}
+
       </p>
 
-      <p className="mt-1.5 text-sm font-semibold leading-5 text-slate-800">
+      <p className="mt-1.5 break-words text-xs font-semibold leading-5 text-slate-800 lg:text-sm">
+
         {value}
+
       </p>
 
     </div>
@@ -1248,4 +1561,3 @@ function InfoItem({
   );
 
 }
-
