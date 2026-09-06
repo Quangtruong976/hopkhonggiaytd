@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   description: "Hệ thống Phòng họp không giấy",
 
   icons: {
-    icon: "/icon.png?v=2",
-    apple: "/apple-icon.png?v=2",
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
   },
 };
 
