@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Phòng họp không giấy",
+  title: "Phòng họp không giấy Tỉnh đoàn",
   description: "Hệ thống Phòng họp không giấy",
 };
 
