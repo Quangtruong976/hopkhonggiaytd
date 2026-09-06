@@ -1,97 +1,23 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextRequest, NextResponse } from "next/server";
+import type { MetadataRoute } from "next";
 
-export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request,
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(
-            ({ name, value }) => {
-              request.cookies.set(name, value);
-            }
-          );
-
-          response = NextResponse.next({
-            request,
-          });
-
-          cookiesToSet.forEach(
-            ({ name, value, options }) => {
-              response.cookies.set(
-                name,
-                value,
-                options
-              );
-            }
-          );
-        },
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Phòng họp không giấy",
+    short_name: "Phòng họp",
+    description:
+      "Hệ thống điều hành và quản lý công việc nội bộ Tỉnh đoàn",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#f1f5f9",
+    theme_color: "#047857",
+    orientation: "portrait-primary",
+    icons: [
+      {
+        src: "/icon.png",
+        sizes: "any",
+        type: "image/png",
+        purpose: "any maskable",
       },
-    }
-  );
-
-  /*
-   * QUAN TRỌNG:
-   *
-   * Proxy chỉ chịu trách nhiệm duy trì session.
-   *
-   * KHÔNG truy vấn bảng profiles ở đây.
-   *
-   * Nếu mỗi request lại query profiles,
-   * trang quản trị có thể bị chậm hoặc bị
-   * redirect về /dang-nhap khi query lỗi/chậm.
-   */
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  /*
-   * CHƯA ĐĂNG NHẬP
-   *
-   * Chỉ chặn các khu vực cần đăng nhập.
-   */
-
-  if (
-    !user &&
-    (
-      pathname.startsWith("/quan-tri") ||
-      pathname.startsWith("/dai-bieu")
-    )
-  ) {
-    return NextResponse.redirect(
-      new URL("/dang-nhap", request.url)
-    );
-  }
-
-  /*
-   * ĐÃ ĐĂNG NHẬP
-   *
-   * Không kiểm tra role ở Proxy.
-   *
-   * Role sẽ được kiểm tra ở layout/page
-   * tương ứng của từng khu vực.
-   */
-
-  return response;
+    ],
+  };
 }
-
-export const config = {
-  matcher: [
-    "/quan-tri/:path*",
-    "/dai-bieu/:path*",
-  ],
-};
-
