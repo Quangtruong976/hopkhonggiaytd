@@ -20,6 +20,12 @@ type MeetingParticipant = {
   attendance_status: string | null;
 };
 
+type DelegateTask = {
+  id: number;
+  title: string;
+  status: string | null;
+};
+
 export default function DaiBieuPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +36,9 @@ export default function DaiBieuPage() {
   // Số phiếu xin ý kiến đang chờ đại biểu thực hiện
   const [pendingOpinionCount, setPendingOpinionCount] =
     useState(0);
+
+  // Số nhiệm vụ mới chưa xem
+  const [newTaskCount, setNewTaskCount] = useState(0);
 
   useEffect(() => {
     loadMeetings();
@@ -63,6 +72,7 @@ export default function DaiBieuPage() {
         setMeetings([]);
         setCurrentUserName("");
         setPendingOpinionCount(0);
+        setNewTaskCount(0);
 
         return;
       }
@@ -73,9 +83,6 @@ export default function DaiBieuPage() {
        * =======================================================
        * 2. LẤY TÊN ĐẠI BIỂU TỪ PROFILES
        * =======================================================
-       *
-       * Không dùng tên cố định.
-       * Mỗi tài khoản sẽ lấy đúng full_name của tài khoản đó.
        */
 
       const {
@@ -95,10 +102,6 @@ export default function DaiBieuPage() {
           profileError
         );
 
-        /*
-         * Nếu profile không lấy được thì dùng email
-         * của tài khoản Auth.
-         */
         userName =
           user.email ||
           "Đại biểu";
@@ -117,16 +120,6 @@ export default function DaiBieuPage() {
        * =======================================================
        * 2.1. ĐẾM PHIẾU XIN Ý KIẾN ĐANG CHỜ
        * =======================================================
-       *
-       * opinion_participants hiện lưu:
-       * - opinion_request_id
-       * - full_name
-       *
-       * Vì vậy xác định phiếu được gửi cho đại biểu
-       * bằng full_name của tài khoản đang đăng nhập.
-       *
-       * Chỉ đếm các phiếu có trạng thái:
-       * "Đang lấy ý kiến"
        */
 
       if (userName) {
@@ -154,6 +147,7 @@ export default function DaiBieuPage() {
           /*
            * Lấy danh sách ID phiếu xin ý kiến
            */
+
           const opinionRequestIds =
             Array.from(
               new Set(
@@ -165,9 +159,9 @@ export default function DaiBieuPage() {
             );
 
           /*
-           * Chỉ lấy các phiếu đang trong thời gian
-           * "Đang lấy ý kiến"
+           * Chỉ lấy các phiếu đang lấy ý kiến
            */
+
           const {
             data: opinionRequests,
             error: opinionRequestError,
@@ -200,6 +194,78 @@ export default function DaiBieuPage() {
         }
       } else {
         setPendingOpinionCount(0);
+      }
+
+      /*
+       * =======================================================
+       * 2.2. ĐẾM NHIỆM VỤ MỚI CHƯA XEM
+       * =======================================================
+       *
+       * Chỉ đếm nhiệm vụ:
+       * - được giao cho tài khoản hiện tại
+       * - chưa hoàn thành
+       * - chưa có trong localStorage đã xem
+       */
+
+      const {
+        data: taskData,
+        error: taskError,
+      } = await supabase
+        .from("meeting_tasks")
+        .select("id, title, status")
+        .eq("assignee_id", user.id)
+        .neq("status", "Đã hoàn thành")
+        .order("created_at", {
+          ascending: false,
+        });
+
+      if (taskError) {
+        console.error(
+          "Lỗi lấy nhiệm vụ của đại biểu:",
+          taskError
+        );
+
+        setNewTaskCount(0);
+      } else {
+        const tasks = (taskData || []) as DelegateTask[];
+
+        let viewedTaskIds: number[] = [];
+
+        try {
+          const stored =
+            window.localStorage.getItem(
+              "dai_bieu_viewed_task_ids"
+            );
+
+          if (stored) {
+            const parsed = JSON.parse(stored);
+
+            if (Array.isArray(parsed)) {
+              viewedTaskIds = parsed
+                .map(Number)
+                .filter((id) =>
+                  Number.isFinite(id)
+                );
+            }
+          }
+        } catch (error) {
+          console.error(
+            "Lỗi đọc nhiệm vụ đã xem:",
+            error
+          );
+        }
+
+        const unviewedTasks =
+          tasks.filter(
+            (task) =>
+              !viewedTaskIds.includes(
+                task.id
+              )
+          );
+
+        setNewTaskCount(
+          unviewedTasks.length
+        );
       }
 
       /*
@@ -389,6 +455,7 @@ export default function DaiBieuPage() {
       console.error(error);
 
       setMeetings([]);
+      setNewTaskCount(0);
     } finally {
       setLoading(false);
     }
@@ -524,19 +591,19 @@ export default function DaiBieuPage() {
 
       <header className="border-b border-emerald-600 bg-emerald-800 text-white">
 
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
 
           {/* TÊN HỆ THỐNG */}
 
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center">
 
-            <div>
+            <div className="min-w-0">
 
-              <h1 className="text-xl font-bold tracking-wide">
+              <h1 className="truncate text-base font-bold tracking-wide sm:text-xl">
                 PHÒNG HỌP KHÔNG GIẤY
               </h1>
 
-              <p className="mt-0.5 text-sm text-emerald-100">
+              <p className="mt-0.5 truncate text-xs text-emerald-100 sm:text-sm">
                 Trang thông tin dành cho đại biểu
               </p>
 
@@ -549,7 +616,7 @@ export default function DaiBieuPage() {
 
           <Link
             href="/dai-bieu/tai-khoan"
-            className="group hidden items-center gap-3 rounded-xl px-3 py-1.5 transition hover:bg-emerald-700 md:flex"
+            className="group hidden shrink-0 items-center gap-3 rounded-xl px-3 py-1.5 transition hover:bg-emerald-700 md:flex"
           >
 
             <div className="text-right">
@@ -558,7 +625,7 @@ export default function DaiBieuPage() {
                 Xin chào,
               </p>
 
-              <p className="text-sm font-semibold text-white">
+              <p className="max-w-56 truncate text-sm font-semibold text-white">
                 {currentUserName ||
                   "Đang tải..."}
               </p>
@@ -596,7 +663,7 @@ export default function DaiBieuPage() {
           MAIN
       ====================================================== */}
 
-      <div className="mx-auto max-w-7xl px-6 py-2">
+      <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6">
 
         {/* =====================================================
             NGÀY HÔM NAY
@@ -604,9 +671,73 @@ export default function DaiBieuPage() {
 
         <section className="mb-3 pt-1">
 
-          <p className="text-sm font-medium text-emerald-700">
+          {/* -------------------------------------------------
+              DESKTOP
+              
+              Giữ nguyên cách hiển thị hiện tại.
+              Không có thông báo nhiệm vụ ở desktop.
+          -------------------------------------------------- */}
+
+          <p className="hidden text-sm font-medium text-emerald-700 md:block">
             {formatToday()}
           </p>
+
+
+          {/* -------------------------------------------------
+              MOBILE / IPAD DỌC
+              
+              Ngày bên trái.
+              Thông báo nhiệm vụ bên phải.
+          -------------------------------------------------- */}
+
+          <div className="flex items-center justify-between gap-3 md:hidden">
+
+            <p className="min-w-0 truncate text-xs font-medium text-emerald-700">
+
+              {formatToday()}
+
+            </p>
+
+
+            {newTaskCount > 0 && (
+
+              <Link
+                href="/dai-bieu/nhiem-vu"
+                className="flex shrink-0 items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-semibold text-red-600 shadow-sm transition active:bg-red-100"
+              >
+
+                {/* ICON CHUÔNG */}
+
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  className="h-3.5 w-3.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9a6 6 0 0 0-12 0v.75c0 2.56-.997 4.884-2.625 6.625a23.848 23.848 0 0 0 5.454 1.31m6.028 0a24.255 24.255 0 0 1-6.028 0m6.028 0a3 3 0 1 1-6.028 0"
+                  />
+                </svg>
+
+
+                <span className="whitespace-nowrap">
+                  Bạn có nhiệm vụ mới
+                </span>
+
+
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  {newTaskCount}
+                </span>
+
+              </Link>
+
+            )}
+
+          </div>
 
         </section>
 
@@ -617,9 +748,9 @@ export default function DaiBieuPage() {
 
         <section className="mb-4">
 
-          <div className="mb-3 flex items-center gap-2">
+          <div className="mb-3 flex items-start gap-2">
 
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
 
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -638,13 +769,13 @@ export default function DaiBieuPage() {
 
             </div>
 
-            <h3 className="text-lg font-bold text-emerald-800">
+            <h3 className="min-w-0 text-base font-bold text-emerald-800 sm:text-lg">
 
               Thông báo
 
               <br />
 
-              <span className="text-sm font-normal leading-5 text-slate-400 italic">
+              <span className="text-xs font-normal leading-5 text-slate-400 italic sm:text-sm">
                 (Đại biểu theo dõi các cuộc họp được mời tham dự, xem tài liệu, xác nhận tham dự và thực hiện các nội dung cần xin ý kiến).
               </span>
 
@@ -661,10 +792,10 @@ export default function DaiBieuPage() {
 
             <Link
               href="/dai-bieu/phong-hop"
-              className="group flex items-center gap-4 border-b border-slate-100 px-5 py-4 transition hover:bg-emerald-50/40"
+              className="group flex items-center gap-3 border-b border-slate-100 px-3 py-3.5 transition hover:bg-emerald-50/40 sm:gap-4 sm:px-5 sm:py-4"
             >
 
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 sm:h-10 sm:w-10">
 
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -672,7 +803,7 @@ export default function DaiBieuPage() {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.8"
-                  className="h-5 w-5"
+                  className="h-4 w-4 sm:h-5 sm:w-5"
                 >
                   <path
                     strokeLinecap="round"
@@ -686,23 +817,23 @@ export default function DaiBieuPage() {
 
               <div className="min-w-0 flex-1">
 
-                <p className="text-base font-semibold text-slate-800 group-hover:text-emerald-700">
+                <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-emerald-700 sm:text-base">
                   Bạn có cuộc họp được mời tham dự
                 </p>
 
-                <p className="mt-0.5 text-xs text-slate-500">
+                <p className="mt-0.5 truncate text-[11px] text-slate-500 sm:text-xs">
                   Vào Phòng họp để xem thông tin và xác nhận tham dự.
                 </p>
 
               </div>
 
 
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+              <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
                 {totalMeetings}
               </span>
 
 
-              <span className="text-slate-300 transition group-hover:text-emerald-600">
+              <span className="shrink-0 text-slate-300 transition group-hover:text-emerald-600">
                 →
               </span>
 
@@ -715,10 +846,10 @@ export default function DaiBieuPage() {
 
             <Link
               href="/dai-bieu/xin-y-kien"
-              className="group flex items-center gap-4 px-5 py-4 transition hover:bg-orange-50/40"
+              className="group flex items-center gap-3 px-3 py-3.5 transition hover:bg-orange-50/40 sm:gap-4 sm:px-5 sm:py-4"
             >
 
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 sm:h-10 sm:w-10">
 
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -726,7 +857,7 @@ export default function DaiBieuPage() {
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.8"
-                  className="h-5 w-5"
+                  className="h-4 w-4 sm:h-5 sm:w-5"
                 >
                   <path
                     strokeLinecap="round"
@@ -747,23 +878,23 @@ export default function DaiBieuPage() {
 
               <div className="min-w-0 flex-1">
 
-                <p className="text-base font-semibold text-slate-800 group-hover:text-orange-600">
+                <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-orange-600 sm:text-base">
                   Bạn có nội dung cần xin ý kiến
                 </p>
 
-                <p className="mt-0.5 text-xs text-slate-500">
+                <p className="mt-0.5 truncate text-[11px] text-slate-500 sm:text-xs">
                   Có phiếu xin ý kiến mới đang chờ bạn thực hiện.
                 </p>
 
               </div>
 
 
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+              <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
                 {pendingOpinionCount}
               </span>
 
 
-              <span className="text-slate-300 transition group-hover:text-orange-600">
+              <span className="shrink-0 text-slate-300 transition group-hover:text-orange-600">
                 →
               </span>
 
@@ -780,43 +911,45 @@ export default function DaiBieuPage() {
 
         <section className="mb-4">
 
-          <div className="mb-4 flex items-end justify-between">
+          <div className="mb-3 flex items-end justify-between gap-3 sm:mb-4">
 
-            <div>
+            <div className="min-w-0">
 
-              <h3 className="flex items-center gap-2 text-xl font-bold text-emerald-800">
+              <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-800 sm:text-xl">
 
                 <span className="text-emerald-600">
                   •
                 </span>
 
-                Cuộc họp của tôi
+                <span className="truncate">
+                  Cuộc họp của tôi
+                </span>
 
               </h3>
 
-              <p className="mt-0.5 text-sm text-slate-400 italic">
+              <p className="mt-0.5 text-xs text-slate-400 italic sm:text-sm">
                 (Các cuộc họp bạn được mời tham dự)
               </p>
 
             </div>
 
 
-            <div className="flex items-center gap-1">
+            <div className="flex shrink-0 items-center gap-2">
 
               {totalMeetings > 0 && (
-                <span className="text-[10px] text-slate-400">
+                <span className="hidden text-[10px] text-slate-400 sm:inline">
                   Hiển thị{" "}
                   {Math.min(
                     totalMeetings,
                     5
                   )}{" "}
-                  / {totalMeetings} cuộc họp
+                  / {totalMeetings}
                 </span>
               )}
 
               <Link
                 href="/dai-bieu/phong-hop"
-                className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 sm:text-sm"
               >
                 Xem tất cả →
               </Link>
@@ -905,16 +1038,18 @@ export default function DaiBieuPage() {
                     <Link
                       key={meeting.id}
                       href={`/dai-bieu/phong-hop/${meeting.id}`}
-                      className="group block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
+                      className="group block rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md sm:p-4"
                     >
 
-                      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+                      <div className="flex items-center gap-3 sm:gap-4">
 
-                        {/* NGÀY */}
+                        {/* =================================================
+                            NGÀY
+                        ================================================== */}
 
-                        <div className="flex h-16 w-20 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:h-16 sm:w-20">
 
-                          <span className="text-xs font-medium">
+                          <span className="text-[10px] font-medium sm:text-xs">
 
                             {meeting.meeting_date
                               ? new Date(
@@ -931,7 +1066,7 @@ export default function DaiBieuPage() {
                           </span>
 
 
-                          <span className="text-xl font-bold">
+                          <span className="text-lg font-bold sm:text-xl">
 
                             {meeting.meeting_date
                               ? new Date(
@@ -944,26 +1079,61 @@ export default function DaiBieuPage() {
                         </div>
 
 
-                        {/* NỘI DUNG */}
+                        {/* =================================================
+                            NỘI DUNG
+                        ================================================== */}
 
                         <div className="min-w-0 flex-1">
 
-                          <p className="text-xs font-medium text-emerald-700">
-                            {formatDate(
-                              meeting.meeting_date
-                            )}
-                          </p>
+                          {/* =================================================
+                              NGÀY + TÊN CUỘC HỌP CÙNG MỘT HÀNG
+                          ================================================== */}
+
+                          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+
+                            <p className="shrink-0 text-[10px] font-medium text-emerald-700 sm:text-xs">
+
+                              {meeting.meeting_date
+                                ? new Date(
+                                    `${meeting.meeting_date}T00:00:00`
+                                  ).toLocaleDateString(
+                                    "vi-VN",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    }
+                                  )
+                                : "Chưa xác định"}
+
+                            </p>
 
 
-                          <h4 className="mt-1 text-base font-semibold text-slate-900 group-hover:text-emerald-700">
-                            {meeting.title}
-                          </h4>
+                            <span className="shrink-0 text-slate-300">
+                              •
+                            </span>
 
 
-                          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-500">
+                            <h4
+                              className="min-w-0 truncate text-sm font-semibold text-slate-900 group-hover:text-emerald-700 sm:text-base"
+                              title={meeting.title}
+                            >
+                              {meeting.title}
+                            </h4>
 
-                            <span>
+                          </div>
+
+
+                          {/* =================================================
+                              GIỜ + ĐỊA ĐIỂM
+                          ================================================== */}
+
+                          <div className="mt-1.5 flex min-w-0 items-center gap-x-3 text-[10px] text-slate-500 sm:gap-x-5 sm:text-xs">
+
+                            <span className="shrink-0">
+
                               🕐{" "}
+
                               {formatTime(
                                 meeting.start_time
                               )}
@@ -972,13 +1142,36 @@ export default function DaiBieuPage() {
                                 ` – ${formatTime(
                                   meeting.end_time
                                 )}`}
+
                             </span>
 
 
-                            <span>
+                            <span className="min-w-0 truncate">
+
                               📍{" "}
+
                               {meeting.location ||
                                 "Chưa cập nhật địa điểm"}
+
+                            </span>
+
+                          </div>
+
+
+                          {/* =================================================
+                              TRẠNG THÁI THAM DỰ
+                          ================================================== */}
+
+                          <div className="mt-1.5">
+
+                            <span
+                              className={`inline-flex rounded-md border px-2 py-1 text-[10px] font-medium sm:text-xs ${getAttendanceClass(
+                                meeting.attendance_status
+                              )}`}
+                            >
+                              {getAttendanceLabel(
+                                meeting.attendance_status
+                              )}
                             </span>
 
                           </div>
@@ -986,27 +1179,14 @@ export default function DaiBieuPage() {
                         </div>
 
 
-                        {/* TRẠNG THÁI ĐIỂM DANH */}
+                        {/* =================================================
+                            MŨI TÊN
+                        ================================================== */}
 
-                        <div className="shrink-0">
+                        <div className="shrink-0 text-base text-slate-300 transition group-hover:text-emerald-600 sm:text-lg">
 
-                          <span
-                            className={`inline-flex rounded-lg border px-3 py-2 text-xs font-medium ${getAttendanceClass(
-                              meeting.attendance_status
-                            )}`}
-                          >
-                            {getAttendanceLabel(
-                              meeting.attendance_status
-                            )}
-                          </span>
-
-                        </div>
-
-
-                        {/* MŨI TÊN */}
-
-                        <div className="hidden text-lg text-slate-300 transition group-hover:text-emerald-600 md:block">
                           →
+
                         </div>
 
                       </div>
@@ -1028,9 +1208,9 @@ export default function DaiBieuPage() {
 
         <section>
 
-          <div className="mb-4">
+          <div className="mb-3 sm:mb-4">
 
-            <h3 className="flex items-center gap-2 text-xl font-bold text-emerald-800">
+            <h3 className="flex items-center gap-2 text-lg font-bold text-emerald-800 sm:text-xl">
 
               <span className="text-emerald-600">
                 •
@@ -1040,25 +1220,25 @@ export default function DaiBieuPage() {
 
             </h3>
 
-            <p className="mt-0.5 text-sm text-slate-400 italic">
+            <p className="mt-0.5 text-xs text-slate-400 italic sm:text-sm">
               (Các chức năng hỗ trợ ngoài nội dung cuộc họp)
             </p>
 
           </div>
 
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
 
             {/* LỊCH CÔNG TÁC */}
 
             <Link
               href="/dai-bieu/lich-cong-tac"
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"
+              className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md sm:p-5"
             >
 
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
 
-                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 sm:h-12 sm:w-12">
 
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1066,7 +1246,7 @@ export default function DaiBieuPage() {
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.8"
-                    className="h-6 w-6"
+                    className="h-5 w-5 sm:h-6 sm:w-6"
                   >
                     <path
                       strokeLinecap="round"
@@ -1109,12 +1289,12 @@ export default function DaiBieuPage() {
 
             <Link
               href="/dai-bieu/xin-y-kien"
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md"
+              className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md sm:p-5"
             >
 
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
 
-                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 sm:h-12 sm:w-12">
 
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -1122,7 +1302,7 @@ export default function DaiBieuPage() {
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.8"
-                    className="h-6 w-6"
+                    className="h-5 w-5 sm:h-6 sm:w-6"
                   >
                     <path
                       strokeLinecap="round"
@@ -1176,4 +1356,3 @@ export default function DaiBieuPage() {
     </main>
   );
 }
-
