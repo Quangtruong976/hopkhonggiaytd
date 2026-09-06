@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-
+import PWARegister from "./PWARegister";
 export const metadata: Metadata = {
   title: "Phòng họp không giấy Tỉnh đoàn",
   description: "Hệ thống Phòng họp không giấy",
@@ -14,6 +14,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body className="bg-slate-100 text-slate-900">
+      <PWARegister />
         {children}
       </body>
     </html>
