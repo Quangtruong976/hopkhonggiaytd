@@ -322,7 +322,7 @@ export default function DangNhapPage() {
 
               <label
                 htmlFor="password"
-                className="mb-2 block text-base font-medium text-slate-700"
+                className="mb-2 block text-sm font-medium text-slate-700"
               >
                 Mật khẩu
               </label>
@@ -340,7 +340,7 @@ export default function DangNhapPage() {
                 placeholder="Nhập mật khẩu"
                 autoComplete="current-password"
                 disabled={loading}
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-400"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-50 disabled:text-slate-400"
               />
 
             </div>
