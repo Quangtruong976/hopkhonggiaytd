@@ -273,6 +273,17 @@ export default function DaiBieuPage() {
        * 3. LẤY CÁC CUỘC HỌP ĐƯỢC MỜI
        * =======================================================
        */
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+      
+      console.log("AUTH USER:", authUser?.id);
+      console.log("AUTH ERROR:", authError);
+
+
+
+      
 
       const {
         data: participantData,

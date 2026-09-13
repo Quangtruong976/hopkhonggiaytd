@@ -286,17 +286,42 @@ export default function VotingTab({
       /* ---------------------------------------------------
          6. PHIẾU BIỂU QUYẾT
       --------------------------------------------------- */
+      const {
+        data: {
+          user: debugUser,
+        },
+      } = await supabase.auth.getUser();
+      
+      console.log("VOTING USER ID:", debugUser?.id ?? "NULL");
+      console.log("VOTING USER EMAIL:", debugUser?.email ?? "NULL");
+      console.log("VOTING USER ROLE:", debugUser?.role ?? "NULL");
+      console.log(
+        "VOTING APP ROLE:",
+        debugUser?.app_metadata?.role ?? "NULL"
+      );
+      console.log(
+        "VOTING USER META ROLE:",
+        debugUser?.user_metadata?.role ?? "NULL"
+      );
+
 
       const itemsResult =
-        await supabase
-          .from("meeting_vote_items")
-          .select("*");
-
-      if (itemsResult.error) {
-        throw new Error(
-          `Không thể tải kết quả biểu quyết: ${itemsResult.error.message}`
-        );
-      }
+      await supabase
+        .from("meeting_vote_items")
+        .select("*");
+    
+    if (itemsResult.error) {
+      console.error("MEETING_VOTE_ITEMS ERROR:", {
+        message: itemsResult.error.message,
+        details: itemsResult.error.details,
+        hint: itemsResult.error.hint,
+        code: itemsResult.error.code,
+      });
+    
+      throw new Error(
+        `Không thể tải kết quả biểu quyết: ${itemsResult.error.message}`
+      );
+    }
 
       /* ---------------------------------------------------
          7. DANH SÁCH ĐẠI BIỂU

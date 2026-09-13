@@ -30,6 +30,7 @@ export default function DaiBieuPhongHopPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [currentUserName, setCurrentUserName] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,7 +74,7 @@ const meetingsPerPage = 3;
         "ĐẠI BIỂU ĐANG ĐĂNG NHẬP:",
         user.id
       );
-
+      setCurrentUserId(user.id);
 
       /*
        * =======================================================
@@ -139,19 +140,21 @@ const meetingsPerPage = 3;
           ascending: true,
         });
 
-      if (participantError) {
-        console.error(
-          "PARTICIPANT ERROR:",
-          participantError
-        );
-
-        setError(
-          `Không thể tải danh sách cuộc họp: ${participantError.message}`
-        );
-
-        setLoading(false);
-        return;
-      }
+        if (participantError) {
+          console.error("PARTICIPANT ERROR:", {
+            message: participantError.message,
+            details: participantError.details,
+            hint: participantError.hint,
+            code: participantError.code,
+          });
+        
+          setError(
+            `Không thể tải danh sách cuộc họp: ${participantError.message}`
+          );
+        
+          setLoading(false);
+          return;
+        }
 
       const participantRows =
         participantData || [];
@@ -351,13 +354,10 @@ const meetingsPerPage = 3;
          */
 
         const userParticipant =
-          sameMeeting.find(
-            (item) =>
-              item.user_id ===
-              getCurrentUserIdFromParticipants(
-                sameMeeting
-              )
-          );
+  sameMeeting.find(
+    (item) =>
+      item.user_id === currentUserId
+  );
 
 
         /*
@@ -366,10 +366,10 @@ const meetingsPerPage = 3;
          */
 
         const profileParticipant =
-          sameMeeting.find(
-            (item) =>
-              item.profile_id !== null
-          );
+        sameMeeting.find(
+          (item) =>
+            item.profile_id === currentUserId
+        );
 
 
         /*
@@ -433,7 +433,7 @@ const meetingsPerPage = 3;
         };
       });
 
-    }, [meetings, participants]);
+    }, [meetings, participants, currentUserId]);
 
 
   /*
@@ -1220,30 +1220,5 @@ const paginatedMeetings =
  * ===========================================================
  */
 
-function getCurrentUserIdFromParticipants(
-  participants: Participant[]
-): string | null {
 
-  const userIds = participants
-    .map((item) => item.user_id)
-    .filter(
-      (id): id is string =>
-        Boolean(id)
-    );
-
-  const uniqueUserIds = [
-    ...new Set(userIds),
-  ];
-
-  /*
-   * Nếu chỉ có một user_id trong nhóm
-   * thì đó chính là tài khoản đang được truy vấn.
-   */
-
-  if (uniqueUserIds.length === 1) {
-    return uniqueUserIds[0];
-  }
-
-  return null;
-}
 
