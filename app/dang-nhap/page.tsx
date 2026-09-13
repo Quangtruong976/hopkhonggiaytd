@@ -260,7 +260,7 @@ export default function DangNhapPage() {
   <img
     src="/logo-doan.png"
     alt="Logo Đoàn TNCS Hồ Chí Minh"
-    className="h-20 w-20 object-contain"
+    className="h-25 w-25 object-contain"
   />
 </div>
 
