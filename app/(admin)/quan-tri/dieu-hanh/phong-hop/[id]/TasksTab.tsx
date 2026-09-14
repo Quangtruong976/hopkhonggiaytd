@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 /* =========================================================
@@ -54,6 +55,16 @@ type TasksTabProps = {
 export default function TasksTab({
   meetingId,
 }: TasksTabProps) {
+  
+  const searchParams = useSearchParams();
+
+  const conclusionIdParam =
+    searchParams.get("conclusion_id");
+
+  const conclusionId =
+    conclusionIdParam
+      ? Number(conclusionIdParam)
+      : null;
   const [tasks, setTasks] = useState<Task[]>([]);
 
   /* =======================================================
@@ -83,6 +94,8 @@ export default function TasksTab({
   const [priority, setPriority] =
     useState("Bình thường");
   const [dueDate, setDueDate] = useState("");
+  const [sourceConclusionTitle, setSourceConclusionTitle] =
+  useState("");
 
   /* =======================================================
      EDIT
@@ -238,6 +251,13 @@ export default function TasksTab({
     loadGroupMembers();
     loadProfiles();
   }, [meetingId]);
+  
+  useEffect(() => {
+    loadSourceConclusion();
+  }, [
+    meetingId,
+    conclusionId,
+  ]);
 
   /* =========================================================
      DANH SÁCH NGƯỜI THEO NHÓM
@@ -305,7 +325,43 @@ export default function TasksTab({
       selectedProfile.organization || ""
     );
   }
-
+  async function loadSourceConclusion() {
+    if (!conclusionId) {
+      setSourceConclusionTitle("");
+      return;
+    }
+  
+    const { data, error } = await supabase
+      .from("meeting_conclusions")
+      .select("id, title, conclusion_number")
+      .eq("id", conclusionId)
+      .eq("meeting_id", meetingId)
+      .maybeSingle();
+  
+    if (error) {
+      console.error(error);
+  
+      setError(
+        `Không thể tải kết luận liên kết: ${error.message}`
+      );
+  
+      return;
+    }
+  
+    if (!data) {
+      setError(
+        "Không tìm thấy kết luận được liên kết với nhiệm vụ."
+      );
+  
+      return;
+    }
+  
+    setSourceConclusionTitle(
+      data.conclusion_number
+        ? `${data.conclusion_number} – ${data.title}`
+        : data.title
+    );
+  }
   /* =========================================================
      RESET FORM
   ========================================================= */
@@ -448,18 +504,17 @@ export default function TasksTab({
 
     else {
       const { error } = await supabase
-        .from("meeting_tasks")
-        .insert({
-          meeting_id: meetingId,
+  .from("meeting_tasks")
+  .insert({
+    meeting_id: meetingId,
 
-          ...taskData,
+    conclusion_id:
+      conclusionId || null,
 
-          /*
-           * Nhiệm vụ được ghi nhận là
-           * đang thực hiện ngay khi giao.
-           */
-          status: "Chưa thực hiện",
-        });
+    ...taskData,
+
+    status: "Chưa thực hiện",
+  });
 
       if (error) {
         console.error(error);
@@ -754,7 +809,17 @@ export default function TasksTab({
                 : "Nhiệm vụ sẽ được ghi nhận là đang thực hiện ngay khi giao."}
             </p>
           </div>
+          {conclusionId && sourceConclusionTitle && (
+  <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+    <div className="text-[11px] font-semibold uppercase tracking-wide text-blue-600">
+      Nhiệm vụ từ kết luận
+    </div>
 
+    <div className="mt-1 text-sm font-semibold text-blue-900">
+      {sourceConclusionTitle}
+    </div>
+  </div>
+)}
           {editingTaskId !== null && (
             <button
               type="button"

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+
 import { supabase } from "@/lib/supabase";
 
 import DocumentsTab from "./DocumentsTab";
@@ -93,7 +94,7 @@ export default function MeetingDetailPage() {
     : params.id;
 
   const meetingId = Number(id);
-
+  const searchParams = useSearchParams();
   const [meeting, setMeeting] =
     useState<Meeting | null>(null);
 
@@ -106,8 +107,25 @@ export default function MeetingDetailPage() {
   const [currentUserName, setCurrentUserName] =
     useState("");
 
-  const [activeTab, setActiveTab] =
+    const [activeTab, setActiveTab] =
     useState<TabKey>("agenda");
+  
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+  
+    if (
+      tab === "agenda" ||
+      tab === "documents" ||
+      tab === "participants" ||
+      tab === "opinions" ||
+      tab === "voting" ||
+      tab === "conclusion" ||
+      tab === "tasks" ||
+      tab === "minutes"
+    ) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   // =====================================================
   // TẢI THÔNG TIN NGƯỜI DÙNG

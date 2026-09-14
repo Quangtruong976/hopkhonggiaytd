@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 type Conclusion = {
   id: number;
@@ -13,42 +18,92 @@ type Conclusion = {
   issued_at: string | null;
   file_name: string | null;
   file_path: string | null;
-  status: string;
+  status: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type ConclusionTabProps = {
   meetingId: number;
 };
 
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default function ConclusionTab({
   meetingId,
 }: ConclusionTabProps) {
-  const [conclusion, setConclusion] =
+  const router = useRouter();
+
+  /* =======================================================
+     DATA
+  ======================================================= */
+
+  const [conclusions, setConclusions] =
+    useState<Conclusion[]>([]);
+
+  /* =======================================================
+     FORM
+  ======================================================= */
+
+  const [editingId, setEditingId] =
+    useState<number | null>(null);
+
+  const [number, setNumber] =
+    useState("");
+
+  const [title, setTitle] =
+    useState("");
+
+  const [content, setContent] =
+    useState("");
+
+  const [issuedBy, setIssuedBy] =
+    useState("");
+
+  const [selectedFile, setSelectedFile] =
+    useState<File | null>(null);
+
+  /* =======================================================
+     DETAIL
+  ======================================================= */
+
+  const [viewingConclusion, setViewingConclusion] =
     useState<Conclusion | null>(null);
 
-  const [number, setNumber] = useState("");
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [issuedBy, setIssuedBy] = useState("");
+  /* =======================================================
+     STATE
+  ======================================================= */
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
 
-const [taskTitle, setTaskTitle] = useState("");
-const [taskDescription, setTaskDescription] = useState("");
-const [taskAssignee, setTaskAssignee] = useState("");
-const [taskDepartment, setTaskDepartment] = useState("");
-const [taskPriority, setTaskPriority] =
-  useState("Bình thường");
-const [taskDueDate, setTaskDueDate] = useState("");
+  const [saving, setSaving] =
+    useState(false);
 
-const [creatingTask, setCreatingTask] = useState(false);
+  const [deletingId, setDeletingId] =
+    useState<number | null>(null);
 
-  async function loadConclusion() {
+  const [issuingId, setIssuingId] =
+    useState<number | null>(null);
+
+  const [openingFileId, setOpeningFileId] =
+    useState<number | null>(null);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [error, setError] =
+    useState("");
+
+  /* =========================================================
+     LOAD
+  ========================================================= */
+
+  async function loadConclusions() {
     setLoading(true);
+    setError("");
 
     const { data, error } = await supabase
       .from("meeting_conclusions")
@@ -56,116 +111,311 @@ const [creatingTask, setCreatingTask] = useState(false);
       .eq("meeting_id", meetingId)
       .order("created_at", {
         ascending: false,
-      })
-      .limit(1)
-      .maybeSingle();
+      });
 
     if (error) {
       console.error(error);
+
       setError(
-        `Không thể tải kết luận: ${error.message}`
+        `Không thể tải danh sách kết luận: ${error.message}`
       );
-    } else if (data) {
-      setConclusion(data);
-      setNumber(data.conclusion_number || "");
-      setTitle(data.title || "");
-      setContent(data.content || "");
-      setIssuedBy(data.issued_by || "");
+
+      setConclusions([]);
+    } else {
+      setConclusions(
+        (data || []) as Conclusion[]
+      );
     }
 
     setLoading(false);
   }
 
   useEffect(() => {
-    loadConclusion();
+    loadConclusions();
   }, [meetingId]);
 
+  /* =========================================================
+     RESET FORM
+  ========================================================= */
+
+  function resetForm() {
+    setEditingId(null);
+    setNumber("");
+    setTitle("");
+    setContent("");
+    setIssuedBy("");
+    setSelectedFile(null);
+  }
+
+  /* =========================================================
+     START EDIT
+  ========================================================= */
+
+  function editConclusion(
+    conclusion: Conclusion
+  ) {
+    setEditingId(conclusion.id);
+
+    setNumber(
+      conclusion.conclusion_number || ""
+    );
+
+    setTitle(conclusion.title || "");
+
+    setContent(
+      conclusion.content || ""
+    );
+
+    setIssuedBy(
+      conclusion.issued_by || ""
+    );
+
+    setSelectedFile(null);
+
+    setError("");
+    setMessage("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  /* =========================================================
+     SAVE
+  ========================================================= */
+
   async function saveConclusion() {
+    setError("");
+    setMessage("");
+
     if (!title.trim()) {
-      setError("Vui lòng nhập tên kết luận.");
+      setError(
+        "Vui lòng nhập tên kết luận."
+      );
       return;
     }
 
     if (!content.trim()) {
-      setError("Vui lòng nhập nội dung kết luận.");
+      setError(
+        "Vui lòng nhập nội dung kết luận."
+      );
       return;
     }
 
     setSaving(true);
-    setError("");
-    setMessage("");
 
-    const payload = {
-      meeting_id: meetingId,
-      conclusion_number: number.trim() || null,
-      title: title.trim(),
-      content: content.trim(),
-      issued_by: issuedBy.trim() || null,
-      status: "Dự thảo",
-      updated_at: new Date().toISOString(),
-    };
+    let conclusionId = editingId;
 
-    let result;
+    /* =======================================================
+       CREATE / UPDATE DATA
+    ======================================================= */
 
-    if (conclusion) {
-      result = await supabase
-        .from("meeting_conclusions")
-        .update(payload)
-        .eq("id", conclusion.id)
-        .select()
-        .single();
-    } else {
-      result = await supabase
-        .from("meeting_conclusions")
-        .insert(payload)
-        .select()
-        .single();
-    }
+    if (editingId !== null) {
+      const { data, error } =
+        await supabase
+          .from("meeting_conclusions")
+          .update({
+            conclusion_number:
+              number.trim() || null,
 
-    if (result.error) {
-      console.error(result.error);
+            title: title.trim(),
 
-      setError(
-        `Không thể lưu kết luận: ${result.error.message}`
+            content: content.trim(),
+
+            issued_by:
+              issuedBy.trim() || null,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq("id", editingId)
+          .eq("meeting_id", meetingId)
+          .select()
+          .single();
+
+      if (error) {
+        console.error(error);
+
+        setError(
+          `Không thể cập nhật kết luận: ${error.message}`
+        );
+
+        setSaving(false);
+        return;
+      }
+
+      conclusionId = data.id;
+
+      /*
+       * Nếu kết luận đã ban hành thì giữ nguyên trạng thái.
+       */
+
+      setMessage(
+        "Đã cập nhật kết luận."
       );
+    } else {
+      const { data, error } =
+        await supabase
+          .from("meeting_conclusions")
+          .insert({
+            meeting_id: meetingId,
 
-      setSaving(false);
-      return;
+            conclusion_number:
+              number.trim() || null,
+
+            title: title.trim(),
+
+            content: content.trim(),
+
+            issued_by:
+              issuedBy.trim() || null,
+
+            status: "Dự thảo",
+          })
+          .select()
+          .single();
+
+      if (error) {
+        console.error(error);
+
+        setError(
+          `Không thể tạo kết luận: ${error.message}`
+        );
+
+        setSaving(false);
+        return;
+      }
+
+      conclusionId = data.id;
+
+      setMessage(
+        "Đã lưu kết luận mới."
+      );
     }
 
-    setConclusion(result.data);
+    /* =======================================================
+       UPLOAD FILE
+    ======================================================= */
 
-    setMessage(
-      "Đã lưu kết luận cuộc họp."
-    );
+    if (selectedFile && conclusionId) {
+      const safeName =
+        selectedFile.name.replace(
+          /[^a-zA-Z0-9._-]/g,
+          "_"
+        );
+
+      const filePath =
+        `conclusions/${meetingId}/${conclusionId}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from("meeting-documents")
+          .upload(
+            filePath,
+            selectedFile,
+            {
+              upsert: true,
+            }
+          );
+
+      if (uploadError) {
+        console.error(uploadError);
+
+        setError(
+          `Đã lưu kết luận nhưng không thể tải file: ${uploadError.message}`
+        );
+
+        await loadConclusions();
+
+        resetForm();
+        setSaving(false);
+
+        return;
+      }
+
+      const { error: fileUpdateError } =
+        await supabase
+          .from("meeting_conclusions")
+          .update({
+            file_name:
+              selectedFile.name,
+
+            file_path:
+              filePath,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq("id", conclusionId)
+          .eq("meeting_id", meetingId);
+
+      if (fileUpdateError) {
+        console.error(fileUpdateError);
+
+        setError(
+          `Đã tải file nhưng không thể cập nhật thông tin file: ${fileUpdateError.message}`
+        );
+
+        await loadConclusions();
+
+        resetForm();
+        setSaving(false);
+
+        return;
+      }
+
+      setMessage(
+        "Đã lưu kết luận và file đính kèm."
+      );
+    }
+
+    await loadConclusions();
+
+    resetForm();
 
     setSaving(false);
   }
 
-  async function issueConclusion() {
-    if (!conclusion) {
-      setError(
-        "Vui lòng lưu kết luận trước khi ban hành."
-      );
+  /* =========================================================
+     ISSUE
+  ========================================================= */
+
+  async function issueConclusion(
+    conclusion: Conclusion
+  ) {
+    if (
+      conclusion.status ===
+      "Đã ban hành"
+    ) {
       return;
     }
 
+    setIssuingId(conclusion.id);
     setError("");
     setMessage("");
 
-    const { data, error } = await supabase
-      .from("meeting_conclusions")
-      .update({
-        status: "Đã ban hành",
-        issued_at: new Date().toISOString(),
-        issued_by:
-          issuedBy.trim() ||
-          "Quản trị viên",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", conclusion.id)
-      .select()
-      .single();
+    const { data, error } =
+      await supabase
+        .from("meeting_conclusions")
+        .update({
+          status: "Đã ban hành",
+
+          issued_at:
+            new Date().toISOString(),
+
+          issued_by:
+            conclusion.issued_by ||
+            issuedBy.trim() ||
+            "Quản trị viên",
+
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq("id", conclusion.id)
+        .eq("meeting_id", meetingId)
+        .select()
+        .single();
 
     if (error) {
       console.error(error);
@@ -174,130 +424,246 @@ const [creatingTask, setCreatingTask] = useState(false);
         `Không thể ban hành kết luận: ${error.message}`
       );
 
+      setIssuingId(null);
       return;
     }
 
-    setConclusion(data);
+    setConclusions((current) =>
+      current.map((item) =>
+        item.id === data.id
+          ? data
+          : item
+      )
+    );
 
     setMessage(
-      "Đã ban hành kết luận cuộc họp."
+      "Đã ban hành kết luận."
     );
+
+    setIssuingId(null);
   }
-  async function createTaskFromConclusion() {
-    if (!conclusion) {
-      setError(
-        "Vui lòng lưu kết luận trước khi tạo nhiệm vụ."
+
+  /* =========================================================
+     DELETE
+  ========================================================= */
+
+  async function deleteConclusion(
+    conclusion: Conclusion
+  ) {
+    const confirmed =
+      window.confirm(
+        `Bạn có chắc chắn muốn xóa kết luận "${conclusion.title}" không?`
       );
+
+    if (!confirmed) {
       return;
     }
-  
-    if (!taskTitle.trim()) {
-      setError("Vui lòng nhập nội dung nhiệm vụ.");
-      return;
-    }
-  
-    if (!taskAssignee.trim()) {
-      setError("Vui lòng nhập người phụ trách.");
-      return;
-    }
-  
-    if (!taskDepartment.trim()) {
-      setError("Vui lòng nhập đơn vị phụ trách.");
-      return;
-    }
-  
-    if (!taskDueDate) {
-      setError("Vui lòng chọn hạn hoàn thành.");
-      return;
-    }
-  
-    setCreatingTask(true);
+
+    setDeletingId(conclusion.id);
     setError("");
     setMessage("");
-  
-    const { error } = await supabase
-      .from("meeting_tasks")
-      .insert({
-        meeting_id: meetingId,
-        conclusion_id: conclusion.id,
-        title: taskTitle.trim(),
-        description:
-          taskDescription.trim() || null,
-        assignee: taskAssignee.trim(),
-        department: taskDepartment.trim(),
-        priority: taskPriority,
-        due_date: taskDueDate,
-        status: "Chưa thực hiện",
-      });
-  
+
+    /*
+     * Không tự động xóa nhiệm vụ liên kết.
+     * Nếu đã có nhiệm vụ tham chiếu đến kết luận,
+     * database sẽ bảo vệ quan hệ dữ liệu.
+     */
+
+    const { error } =
+      await supabase
+        .from("meeting_conclusions")
+        .delete()
+        .eq("id", conclusion.id)
+        .eq("meeting_id", meetingId);
+
     if (error) {
       console.error(error);
-  
+
       setError(
-        `Không thể tạo nhiệm vụ: ${error.message}`
+        `Không thể xóa kết luận: ${error.message}`
       );
-  
-      setCreatingTask(false);
+
+      setDeletingId(null);
       return;
     }
-  
+
     setMessage(
-      "Đã tạo nhiệm vụ từ kết luận thành công."
+      "Đã xóa kết luận."
     );
-  
-    setTaskTitle("");
-    setTaskDescription("");
-    setTaskAssignee("");
-    setTaskDepartment("");
-    setTaskPriority("Bình thường");
-    setTaskDueDate("");
-    setShowTaskForm(false);
-  
-    setCreatingTask(false);
+
+    await loadConclusions();
+
+    if (
+      viewingConclusion?.id ===
+      conclusion.id
+    ) {
+      setViewingConclusion(null);
+    }
+
+    setDeletingId(null);
   }
-  if (loading) {
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-        Đang tải kết luận...
-      </div>
+
+  /* =========================================================
+     OPEN FILE
+  ========================================================= */
+
+  async function openFile(
+    conclusion: Conclusion
+  ) {
+    if (!conclusion.file_path) {
+      return;
+    }
+
+    setOpeningFileId(conclusion.id);
+    setError("");
+
+    const { data, error } =
+      await supabase.storage
+        .from("meeting-documents")
+        .createSignedUrl(
+          conclusion.file_path,
+          300
+        );
+
+    if (error) {
+      console.error(error);
+
+      setError(
+        `Không thể mở file: ${error.message}`
+      );
+
+      setOpeningFileId(null);
+      return;
+    }
+
+    window.open(
+      data.signedUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    setOpeningFileId(null);
+  }
+
+  /* =========================================================
+     STATUS
+  ========================================================= */
+
+  function getStatusStyle(
+    status: string | null
+  ) {
+    if (status === "Đã ban hành") {
+      return "bg-blue-50 text-blue-700";
+    }
+
+    if (status === "Đã thu hồi") {
+      return "bg-red-50 text-red-700";
+    }
+
+    return "bg-amber-50 text-amber-700";
+  }
+
+  /* =========================================================
+     DATE
+  ========================================================= */
+
+  function formatDate(
+    date: string | null
+  ) {
+    if (!date) {
+      return "—";
+    }
+
+    return new Date(
+      date
+    ).toLocaleDateString(
+      "vi-VN",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }
     );
   }
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
 
-      {/* TIÊU ĐỀ */}
+      {/* =====================================================
+          TITLE
+      ===================================================== */}
 
       <div>
-      <h2 className="text-base font-bold text-emerald-900">
-      <span className="text-emerald-900">● </span>
+        <h2 className="text-base font-bold text-emerald-900">
+          <span className="text-emerald-900">
+            ●{" "}
+          </span>
           Kết luận cuộc họp
         </h2>
 
         <p className="mt-1 text-xs text-slate-500">
-          Soạn thảo, lưu và ban hành kết luận sau cuộc họp.
+          Quản lý các kết luận được ban hành sau cuộc họp.
         </p>
       </div>
 
-      {/* THÔNG BÁO */}
+
+      {/* =====================================================
+          MESSAGE
+      ===================================================== */}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
       {message && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {message}
         </div>
       )}
 
-      {/* FORM */}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      {/* =====================================================
+          FORM
+      ===================================================== */}
 
-        <div className="grid gap-5 md:grid-cols-2">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+        <div className="flex items-center justify-between gap-3">
+
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              {editingId !== null
+                ? "Sửa kết luận"
+                : "Thêm kết luận"}
+            </h3>
+
+            <p className="mt-1 text-xs text-slate-500">
+              {editingId !== null
+                ? "Cập nhật nội dung kết luận."
+                : "Tạo kết luận mới cho cuộc họp."}
+            </p>
+          </div>
+
+          {editingId !== null && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Hủy sửa
+            </button>
+          )}
+
+        </div>
+
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
 
           <div>
             <label className="text-sm font-semibold text-slate-700">
@@ -313,6 +679,7 @@ const [creatingTask, setCreatingTask] = useState(false);
               className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
             />
           </div>
+
 
           <div>
             <label className="text-sm font-semibold text-slate-700">
@@ -331,9 +698,10 @@ const [creatingTask, setCreatingTask] = useState(false);
 
         </div>
 
-        <div className="mt-5">
+
+        <div className="mt-4">
           <label className="text-sm font-semibold text-slate-700">
-            Tên kết luận
+            Nội dung / tên kết luận
           </label>
 
           <input
@@ -341,12 +709,13 @@ const [creatingTask, setCreatingTask] = useState(false);
             onChange={(e) =>
               setTitle(e.target.value)
             }
-            placeholder="Ví dụ: Kết luận cuộc họp Ban Thường vụ Tỉnh đoàn tháng 8/2026"
+            placeholder="Ví dụ: Kết luận cuộc họp Ban Thường vụ Tỉnh đoàn tháng 9/2026"
             className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500"
           />
         </div>
 
-        <div className="mt-5">
+
+        <div className="mt-4">
           <label className="text-sm font-semibold text-slate-700">
             Nội dung kết luận
           </label>
@@ -356,11 +725,37 @@ const [creatingTask, setCreatingTask] = useState(false);
             onChange={(e) =>
               setContent(e.target.value)
             }
-            rows={12}
+            rows={8}
             placeholder="Nhập nội dung kết luận của cuộc họp..."
-            className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-7 outline-none focus:border-emerald-500"
+            className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none focus:border-emerald-500"
           />
         </div>
+
+
+        <div className="mt-4">
+          <label className="text-sm font-semibold text-slate-700">
+            File kết luận
+          </label>
+
+          <input
+            type="file"
+            onChange={(e) =>
+              setSelectedFile(
+                e.target.files?.[0] ||
+                  null
+              )
+            }
+            className="mt-2 block w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+          />
+
+          {selectedFile && (
+            <p className="mt-2 text-xs text-slate-500">
+              File mới:{" "}
+              {selectedFile.name}
+            </p>
+          )}
+        </div>
+
 
         <div className="mt-5 flex flex-wrap gap-3">
 
@@ -368,253 +763,473 @@ const [creatingTask, setCreatingTask] = useState(false);
             type="button"
             onClick={saveConclusion}
             disabled={saving}
-            className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+            className="cursor-pointer rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving
               ? "Đang lưu..."
-              : "Lưu kết luận"}
+              : editingId !== null
+                ? "Lưu thay đổi"
+                : "Lưu kết luận"}
           </button>
 
-          {conclusion &&
-            conclusion.status !== "Đã ban hành" && (
+          {editingId !== null && (
+            <button
+              type="button"
+              onClick={resetForm}
+              disabled={saving}
+              className="cursor-pointer rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed"
+            >
+              Hủy
+            </button>
+          )}
+
+        </div>
+
+      </div>
+
+
+      {/* =====================================================
+          DANH SÁCH KẾT LUẬN
+      ===================================================== */}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+
+          <div>
+            <h3 className="text-base font-bold text-slate-900">
+              Danh sách kết luận
+            </h3>
+
+            <p className="mt-1 text-xs text-slate-500">
+              {conclusions.length} kết luận
+            </p>
+          </div>
+
+        </div>
+
+
+        {loading ? (
+
+          <div className="px-5 py-10 text-center text-sm text-slate-500">
+            Đang tải danh sách kết luận...
+          </div>
+
+        ) : conclusions.length === 0 ? (
+
+          <div className="px-5 py-10 text-center text-sm text-slate-500">
+            Chưa có kết luận nào.
+          </div>
+
+        ) : (
+
+          <div className="w-full overflow-hidden">
+
+<table className="w-full table-fixed border-collapse">
+
+<thead className="bg-slate-50">
+  <tr className="border-b border-slate-200">
+    <th className="w-[42%] px-3 py-2 text-left text-[11px] font-semibold text-slate-600">
+      Nội dung kết luận
+    </th>
+
+    <th className="w-[12%] px-2 py-2 text-center text-[11px] font-semibold text-slate-600">
+      Trạng thái
+    </th>
+
+    <th className="w-[14%] px-2 py-2 text-left text-[11px] font-semibold text-slate-600">
+      Người ban hành
+    </th>
+
+    <th className="w-[12%] px-2 py-2 text-center text-[11px] font-semibold text-slate-600">
+      Ngày ban hành
+    </th>
+
+    <th className="w-[20%] px-2 py-2 text-center text-[11px] font-semibold text-slate-600">
+      Thao tác
+    </th>
+  </tr>
+</thead>
+
+              <tbody className="divide-y divide-slate-100">
+
+                {conclusions.map(
+                  (conclusion) => (
+
+                    <tr
+                      key={conclusion.id}
+                      className="align-top transition hover:bg-slate-50"
+                    >
+
+                      {/* NỘI DUNG */}
+
+                      <td className="px-4 py-4">
+
+                        <div className="font-semibold text-slate-800">
+                          {conclusion.conclusion_number && (
+                            <span className="mr-2 text-slate-500">
+                              {conclusion.conclusion_number}
+                            </span>
+                          )}
+
+                          {conclusion.title}
+                        </div>
+
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                          {conclusion.content}
+                        </p>
+
+                        {conclusion.file_name && (
+                          <div className="mt-2 text-xs text-blue-600">
+                            📎{" "}
+                            {conclusion.file_name}
+                          </div>
+                        )}
+
+                      </td>
+
+
+                      {/* TRẠNG THÁI */}
+
+                      <td className="px-4 py-4">
+
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-semibold ${getStatusStyle(
+                            conclusion.status
+                          )}`}
+                        >
+                          {conclusion.status ||
+                            "Dự thảo"}
+                        </span>
+
+                      </td>
+
+
+                      {/* NGƯỜI BAN HÀNH */}
+
+                      <td className="px-4 py-4 text-xs text-slate-600">
+
+                        {conclusion.issued_by ||
+                          "—"}
+
+                      </td>
+
+
+                      {/* NGÀY */}
+
+                      <td className="px-4 py-4 text-xs text-slate-600">
+
+                        {formatDate(
+                          conclusion.issued_at
+                        )}
+
+                      </td>
+
+
+                      {/* THAO TÁC */}
+
+                      <td className="px-4 py-4">
+
+                        <div className="flex flex-wrap justify-center gap-2">
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setViewingConclusion(
+                                conclusion
+                              )
+                            }
+                            className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Xem
+                          </button>
+
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              editConclusion(
+                                conclusion
+                              )
+                            }
+                            className="cursor-pointer rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          >
+                            Sửa
+                          </button>
+
+
+                          {conclusion.status !==
+                            "Đã ban hành" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                issueConclusion(
+                                  conclusion
+                                )
+                              }
+                              disabled={
+                                issuingId ===
+                                conclusion.id
+                              }
+                              className="cursor-pointer rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {issuingId ===
+                              conclusion.id
+                                ? "..."
+                                : "Ban hành"}
+                            </button>
+                          )}
+
+
+                          {conclusion.file_path && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openFile(
+                                  conclusion
+                                )
+                              }
+                              disabled={
+                                openingFileId ===
+                                conclusion.id
+                              }
+                              className="cursor-pointer rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {openingFileId ===
+                              conclusion.id
+                                ? "..."
+                                : "File"}
+                            </button>
+                          )}
+
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              /*
+                               * Chuyển sang khu vực Nhiệm vụ
+                               * và truyền kết luận đang chọn.
+                               *
+                               * TasksTab sẽ đọc
+                               * conclusion_id từ URL.
+                               */
+                              router.push(
+                                `/quan-tri/dieu-hanh/phong-hop/${meetingId}?tab=tasks&conclusion_id=${conclusion.id}`
+                              );
+                            }}
+                            className="cursor-pointer rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+                          >
+                            Tạo nhiệm vụ
+                          </button>
+
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteConclusion(
+                                conclusion
+                              )
+                            }
+                            disabled={
+                              deletingId ===
+                              conclusion.id
+                            }
+                            className="cursor-pointer rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingId ===
+                            conclusion.id
+                              ? "..."
+                              : "Xóa"}
+                          </button>
+
+                        </div>
+
+                      </td>
+
+                    </tr>
+
+                  )
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        )}
+
+      </div>
+
+
+      {/* =====================================================
+          DETAIL MODAL
+      ===================================================== */}
+
+      {viewingConclusion && (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+
+            <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+
+              <div className="min-w-0">
+
+                <h3 className="truncate text-base font-bold text-slate-900">
+                  {viewingConclusion.title}
+                </h3>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  {viewingConclusion.conclusion_number ||
+                    "Kết luận cuộc họp"}
+                </p>
+
+              </div>
+
               <button
                 type="button"
-                onClick={issueConclusion}
-                className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800"
+                onClick={() =>
+                  setViewingConclusion(null)
+                }
+                className="cursor-pointer rounded-lg px-3 py-2 text-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
               >
-                Ban hành kết luận
+                ×
               </button>
-            )}
 
-        </div>
-
-      </div>
-{/* NHIỆM VỤ TỪ KẾT LUẬN */}
-
-{conclusion && (
-  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-      <div>
-        <h3 className="text-lg font-bold text-slate-900">
-          Nhiệm vụ từ kết luận
-        </h3>
-
-        <p className="mt-1 text-sm text-slate-500">
-          Tạo nhiệm vụ trực tiếp từ kết luận này.
-          Nhiệm vụ sẽ được liên kết tự động với kết luận.
-        </p>
-      </div>
-
-      {!showTaskForm && (
-        <button
-          type="button"
-          onClick={() => {
-            setShowTaskForm(true);
-            setError("");
-            setMessage("");
-          }}
-          className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800"
-        >
-          + Tạo nhiệm vụ
-        </button>
-      )}
-
-    </div>
-
-    {showTaskForm && (
-      <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-
-        <h4 className="font-bold text-emerald-900">
-          Tạo nhiệm vụ từ kết luận
-        </h4>
-
-        <div className="mt-5">
-
-          <label className="text-sm font-semibold text-slate-700">
-            Nội dung nhiệm vụ
-          </label>
-
-          <input
-            value={taskTitle}
-            onChange={(e) =>
-              setTaskTitle(e.target.value)
-            }
-            placeholder="Ví dụ: Hoàn thiện kế hoạch theo kết luận"
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-          />
-
-        </div>
-
-        <div className="mt-5">
-
-          <label className="text-sm font-semibold text-slate-700">
-            Nội dung chi tiết
-          </label>
-
-          <textarea
-            value={taskDescription}
-            onChange={(e) =>
-              setTaskDescription(e.target.value)
-            }
-            rows={4}
-            placeholder="Mô tả yêu cầu thực hiện..."
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-          />
-
-        </div>
-
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
-
-          <div>
-
-            <label className="text-sm font-semibold text-slate-700">
-              Người phụ trách
-            </label>
-
-            <input
-              value={taskAssignee}
-              onChange={(e) =>
-                setTaskAssignee(e.target.value)
-              }
-              placeholder="Ví dụ: Nguyễn Văn A"
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-            />
-
-          </div>
-
-          <div>
-
-            <label className="text-sm font-semibold text-slate-700">
-              Đơn vị phụ trách
-            </label>
-
-            <input
-              value={taskDepartment}
-              onChange={(e) =>
-                setTaskDepartment(e.target.value)
-              }
-              placeholder="Ví dụ: Ban Phong trào"
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-            />
-
-          </div>
-
-        </div>
-
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
-
-          <div>
-
-            <label className="text-sm font-semibold text-slate-700">
-              Mức độ ưu tiên
-            </label>
-
-            <select
-              value={taskPriority}
-              onChange={(e) =>
-                setTaskPriority(e.target.value)
-              }
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-            >
-              <option>Bình thường</option>
-              <option>Cao</option>
-              <option>Khẩn cấp</option>
-            </select>
-
-          </div>
-
-          <div>
-
-            <label className="text-sm font-semibold text-slate-700">
-              Hạn hoàn thành
-            </label>
-
-            <input
-              type="date"
-              value={taskDueDate}
-              onChange={(e) =>
-                setTaskDueDate(e.target.value)
-              }
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-emerald-500"
-            />
-
-          </div>
-
-        </div>
-
-        <div className="mt-5 flex flex-wrap gap-3">
-
-          <button
-            type="button"
-            onClick={createTaskFromConclusion}
-            disabled={creatingTask}
-            className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
-          >
-            {creatingTask
-              ? "Đang tạo..."
-              : "Lưu nhiệm vụ"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setShowTaskForm(false);
-              setError("");
-            }}
-            disabled={creatingTask}
-            className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Hủy
-          </button>
-
-        </div>
-
-      </div>
-    )}
-
-  </div>
-)}
-      {/* TRẠNG THÁI */}
-
-      {conclusion && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-            <div>
-              <div className="text-sm text-slate-500">
-                Trạng thái
-              </div>
-
-              <div className="mt-2">
-                <span
-                  className={`rounded-full px-4 py-2 text-xs font-semibold ${
-                    conclusion.status === "Đã ban hành"
-                      ? "bg-blue-50 text-blue-700"
-                      : "bg-amber-50 text-amber-700"
-                  }`}
-                >
-                  {conclusion.status}
-                </span>
-              </div>
             </div>
 
-            {conclusion.issued_at && (
-              <div className="text-sm text-slate-500">
-                Ban hành ngày{" "}
-                {new Date(
-                  conclusion.issued_at
-                ).toLocaleDateString("vi-VN")}
+
+            <div className="space-y-5 p-5">
+
+              <div className="grid gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
+
+                <div>
+                  <div className="text-xs text-slate-400">
+                    Trạng thái
+                  </div>
+
+                  <div className="mt-1">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1.5 text-[11px] font-semibold ${getStatusStyle(
+                        viewingConclusion.status
+                      )}`}
+                    >
+                      {viewingConclusion.status ||
+                        "Dự thảo"}
+                    </span>
+                  </div>
+                </div>
+
+
+                <div>
+                  <div className="text-xs text-slate-400">
+                    Người ban hành
+                  </div>
+
+                  <div className="mt-1 text-sm font-semibold text-slate-700">
+                    {viewingConclusion.issued_by ||
+                      "—"}
+                  </div>
+                </div>
+
+
+                <div>
+                  <div className="text-xs text-slate-400">
+                    Ngày ban hành
+                  </div>
+
+                  <div className="mt-1 text-sm font-semibold text-slate-700">
+                    {formatDate(
+                      viewingConclusion.issued_at
+                    )}
+                  </div>
+                </div>
+
               </div>
-            )}
+
+
+              <div>
+                <h4 className="text-sm font-bold text-slate-800">
+                  Nội dung kết luận
+                </h4>
+
+                <div className="mt-2 whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700">
+                  {viewingConclusion.content}
+                </div>
+              </div>
+
+
+              {viewingConclusion.file_name && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+
+                  <div className="text-xs text-blue-600">
+                    File kết luận
+                  </div>
+
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+
+                    <span className="text-sm font-semibold text-blue-800">
+                      {viewingConclusion.file_name}
+                    </span>
+
+                    {viewingConclusion.file_path && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openFile(
+                            viewingConclusion
+                          )
+                        }
+                        className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                      >
+                        Mở file
+                      </button>
+                    )}
+
+                  </div>
+
+                </div>
+              )}
+
+
+              <div className="flex flex-wrap justify-end gap-2">
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewingConclusion(null);
+
+                    router.push(
+                      `/dieu-hanh/phong-hop/${meetingId}?tab=nhiem-vu&conclusion_id=${viewingConclusion.id}`
+                    );
+                  }}
+                  className="cursor-pointer rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  Tạo nhiệm vụ từ kết luận
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViewingConclusion(null)
+                  }
+                  className="cursor-pointer rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Đóng
+                </button>
+
+              </div>
+
+            </div>
 
           </div>
 
         </div>
+
       )}
 
     </div>
   );
 }
+
