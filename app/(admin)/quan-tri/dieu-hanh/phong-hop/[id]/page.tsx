@@ -203,7 +203,7 @@ export default function MeetingDetailPage() {
       setError("");
 
       // =================================================
-      // 1. LẤY TOÀN BỘ CUỘC HỌP THEO THỨ TỰ TẠO
+      // LẤY TOÀN BỘ CUỘC HỌP
       // =================================================
 
       const {
@@ -223,16 +223,14 @@ export default function MeetingDetailPage() {
           description,
           status,
           created_at
-        `)
-        .order("created_at", {
-          ascending: true,
-        });
+        `);
 
       if (
         allMeetingsError ||
         !allMeetings
       ) {
         console.error(
+          "LỖI TẢI DANH SÁCH CUỘC HỌP:",
           allMeetingsError
         );
 
@@ -248,11 +246,63 @@ export default function MeetingDetailPage() {
       }
 
       // =================================================
-      // 2. XÁC ĐỊNH CUỘC HỌP THEO SỐ THỨ TỰ
+      // SẮP XẾP GIỐNG DANH SÁCH CUỘC HỌP
+      // =================================================
+
+      const sortedMeetings =
+        [...allMeetings].sort(
+          (a, b) => {
+
+            const aFinished =
+              a.status === "Đã kết thúc";
+
+            const bFinished =
+              b.status === "Đã kết thúc";
+
+            // Cuộc họp chưa kết thúc đứng trước
+            if (
+              aFinished !== bFinished
+            ) {
+              return aFinished ? 1 : -1;
+            }
+
+            // Ngày họp: mới nhất trước
+            const aDate =
+              a.meeting_date || "";
+
+            const bDate =
+              b.meeting_date || "";
+
+            if (aDate !== bDate) {
+              return bDate.localeCompare(
+                aDate
+              );
+            }
+
+            // Giờ bắt đầu: mới nhất trước
+            const aTime =
+              a.start_time || "";
+
+            const bTime =
+              b.start_time || "";
+
+            if (aTime !== bTime) {
+              return bTime.localeCompare(
+                aTime
+              );
+            }
+
+            // Cuối cùng dùng ID để ổn định thứ tự
+            return b.id - a.id;
+          }
+        );
+
+      // =================================================
+      // LẤY CUỘC HỌP THEO SỐ THỨ TỰ TRÊN URL
       // =================================================
 
       const selectedMeeting =
-        allMeetings[
+        sortedMeetings[
           meetingOrderFromUrl - 1
         ];
 
@@ -268,7 +318,7 @@ export default function MeetingDetailPage() {
       }
 
       // =================================================
-      // 3. LƯU CUỘC HỌP
+      // LƯU CUỘC HỌP
       // =================================================
 
       setMeeting(
