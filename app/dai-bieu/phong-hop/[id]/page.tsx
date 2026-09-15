@@ -13,6 +13,8 @@ type Meeting = {
   id: number;
   title: string;
   status: string | null;
+  meeting_date: string | null;
+  start_time: string | null;
 };
 
 type Participant = {
@@ -87,7 +89,23 @@ type VoteChoice =
 export default function DaiBieuPhongHopChiTietPage() {
   const params = useParams();
 
-  const meetingId = Number(params.id);
+  /*
+   * URL:
+   * /dai-bieu/phong-hop/1
+   *
+   * "1" là số thứ tự cuộc họp,
+   * KHÔNG phải meetings.id.
+   */
+  const meetingOrder = Number(params.id);
+
+  /*
+   * ID thật trong database.
+   *
+   * Sau khi tìm được cuộc họp theo số thứ tự,
+   * biến này sẽ chứa meetings.id thật.
+   */
+  const [meetingId, setMeetingId] =
+    useState<number | null>(null);
 
   /* =======================================================
      CUỘC HỌP
@@ -193,14 +211,20 @@ export default function DaiBieuPhongHopChiTietPage() {
   ========================================================= */
 
   useEffect(() => {
-    if (!meetingId || Number.isNaN(meetingId)) {
-      setError("Mã cuộc họp không hợp lệ.");
+    if (
+      !Number.isInteger(meetingOrder) ||
+      meetingOrder < 1
+    ) {
+      setError(
+        "Số thứ tự cuộc họp không hợp lệ."
+      );
+
       setLoading(false);
       return;
     }
 
     loadMeeting();
-  }, [meetingId]);
+  }, [meetingOrder]);
 
   /* =========================================================
      LOAD MEETING
@@ -219,54 +243,166 @@ export default function DaiBieuPhongHopChiTietPage() {
         data: { user },
         error: userError,
       } = await supabase.auth.getUser();
-      console.log("===== DEBUG AUTH BIỂU QUYẾT =====");
-      console.log("AUTH USER ID:", user?.id);
-      console.log("AUTH USER EMAIL:", user?.email);
-      console.log("=================================");
+
+      console.log(
+        "===== DEBUG AUTH BIỂU QUYẾT ====="
+      );
+
+      console.log(
+        "AUTH USER ID:",
+        user?.id
+      );
+
+      console.log(
+        "AUTH USER EMAIL:",
+        user?.email
+      );
+
+      console.log(
+        "================================="
+      );
+
       if (userError || !user) {
-        setError("Phiên đăng nhập không hợp lệ.");
+        setError(
+          "Phiên đăng nhập không hợp lệ."
+        );
+
         setLoading(false);
         return;
       }
 
       /* =====================================================
-         2. CUỘC HỌP
+         2. LẤY TOÀN BỘ CUỘC HỌP ĐỂ XÁC ĐỊNH SỐ THỨ TỰ
       ===================================================== */
 
       const {
-        data: meetingData,
-        error: meetingError,
+        data: allMeetings,
+        error: allMeetingsError,
       } = await supabase
         .from("meetings")
         .select(`
           id,
           title,
-          status
-        `)
-        .eq("id", meetingId)
-        .single();
+          status,
+          meeting_date,
+          start_time
+        `);
 
-      if (meetingError || !meetingData) {
+      if (
+        allMeetingsError ||
+        !allMeetings
+      ) {
         console.error(
-          "LỖI TẢI CUỘC HỌP:",
-          meetingError
+          "LỖI TẢI DANH SÁCH CUỘC HỌP:",
+          allMeetingsError
         );
 
         setError(
-          meetingError?.message ||
-            "Không tìm thấy cuộc họp."
+          allMeetingsError?.message ||
+            "Không thể tải danh sách cuộc họp."
         );
 
         setLoading(false);
         return;
       }
 
+      /* =====================================================
+         3. SẮP XẾP THỨ TỰ CUỘC HỌP
+         
+         Cùng nguyên tắc với trang quản trị:
+
+         - Cuộc họp chưa kết thúc trước
+         - Ngày mới trước
+         - Giờ mới trước
+         - ID lớn trước nếu trùng
+      ===================================================== */
+
+      const sortedMeetings =
+        [...allMeetings].sort(
+          (a, b) => {
+            const aFinished =
+              a.status === "Đã kết thúc";
+
+            const bFinished =
+              b.status === "Đã kết thúc";
+
+            if (
+              aFinished !== bFinished
+            ) {
+              return aFinished
+                ? 1
+                : -1;
+            }
+
+            const aDate =
+              a.meeting_date || "";
+
+            const bDate =
+              b.meeting_date || "";
+
+            if (
+              aDate !== bDate
+            ) {
+              return bDate.localeCompare(
+                aDate
+              );
+            }
+
+            const aTime =
+              a.start_time || "";
+
+            const bTime =
+              b.start_time || "";
+
+            if (
+              aTime !== bTime
+            ) {
+              return bTime.localeCompare(
+                aTime
+              );
+            }
+
+            return b.id - a.id;
+          }
+        );
+
+      /* =====================================================
+         4. TÌM CUỘC HỌP THEO SỐ THỨ TỰ
+      ===================================================== */
+
+      const selectedMeeting =
+        sortedMeetings[
+          meetingOrder - 1
+        ];
+
+      if (!selectedMeeting) {
+        setError(
+          `Không tìm thấy cuộc họp số ${meetingOrder}.`
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      /*
+       * Đây mới là ID thật trong database.
+       */
+      const resolvedMeetingId =
+        selectedMeeting.id;
+
+      /*
+       * Lưu lại để các hàm phía dưới sử dụng.
+       */
+      setMeetingId(
+        resolvedMeetingId
+      );
+
       setMeeting(
-        meetingData as Meeting
+        selectedMeeting as Meeting
       );
 
       /* =====================================================
-         3. ĐẠI BIỂU CỦA CUỘC HỌP
+         5. ĐẠI BIỂU CỦA CUỘC HỌP
       ===================================================== */
 
       const {
@@ -286,8 +422,14 @@ export default function DaiBieuPhongHopChiTietPage() {
           response_note,
           response_at
         `)
-        .eq("meeting_id", meetingId)
-        .eq("profile_id", user.id)
+        .eq(
+          "meeting_id",
+          resolvedMeetingId
+        )
+        .eq(
+          "profile_id",
+          user.id
+        )
         .maybeSingle();
 
       if (participantError) {
@@ -330,7 +472,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       );
 
       /* =====================================================
-         4. TRẠNG THÁI THAM DỰ
+         6. TRẠNG THÁI THAM DỰ
       ===================================================== */
 
       if (
@@ -357,7 +499,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         5. TÀI LIỆU ĐÃ PHÁT HÀNH
+         7. TÀI LIỆU ĐÃ PHÁT HÀNH
       ===================================================== */
 
       const {
@@ -374,8 +516,14 @@ export default function DaiBieuPhongHopChiTietPage() {
           file_type,
           status
         `)
-        .eq("meeting_id", meetingId)
-        .eq("status", "Đã phát hành")
+        .eq(
+          "meeting_id",
+          resolvedMeetingId
+        )
+        .eq(
+          "status",
+          "Đã phát hành"
+        )
         .order("id", {
           ascending: true,
         });
@@ -403,7 +551,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         6. GÓP Ý / PHÁT BIỂU
+         8. GÓP Ý / PHÁT BIỂU
       ===================================================== */
 
       const {
@@ -424,14 +572,20 @@ export default function DaiBieuPhongHopChiTietPage() {
           file_path,
           file_name
         `)
-        .eq("meeting_id", meetingId)
+        .eq(
+          "meeting_id",
+          resolvedMeetingId
+        )
         .eq(
           "participant_id",
           currentParticipant.id
         )
-        .order("registered_at", {
-          ascending: false,
-        });
+        .order(
+          "registered_at",
+          {
+            ascending: false,
+          }
+        );
 
       if (!speakingError) {
         setRegistrations(
@@ -447,10 +601,11 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         7. BIỂU QUYẾT
+         9. BIỂU QUYẾT
       ===================================================== */
 
       await loadActiveVote(
+        resolvedMeetingId,
         currentParticipant.id,
         currentParticipant.attendance_status
       );
@@ -474,6 +629,7 @@ export default function DaiBieuPhongHopChiTietPage() {
   ========================================================= */
 
   async function loadActiveVote(
+    targetMeetingId: number,
     participantId: number,
     attendanceStatus: string | null
   ) {
@@ -498,7 +654,10 @@ export default function DaiBieuPhongHopChiTietPage() {
           created_at,
           closed_at
         `)
-        .eq("meeting_id", meetingId)
+        .eq(
+          "meeting_id",
+          targetMeetingId
+        )
         .in("status", [
           "Đang biểu quyết",
           "Đã kết thúc",
@@ -823,10 +982,17 @@ export default function DaiBieuPhongHopChiTietPage() {
       updatedParticipant
     );
 
-    await loadActiveVote(
-      participant.id,
-      attendanceChoice
-    );
+    /*
+     * meetingId ở đây là ID thật của DB,
+     * không phải số thứ tự trên URL.
+     */
+    if (meetingId) {
+      await loadActiveVote(
+        meetingId,
+        participant.id,
+        attendanceChoice
+      );
+    }
 
     setSavingAttendance(false);
   }
@@ -1083,9 +1249,12 @@ export default function DaiBieuPhongHopChiTietPage() {
           "participant_id",
           participant.id
         )
-        .order("registered_at", {
-          ascending: false,
-        })
+        .order(
+          "registered_at",
+          {
+            ascending: false,
+          }
+        )
         .limit(1)
         .maybeSingle();
 
@@ -1664,11 +1833,15 @@ export default function DaiBieuPhongHopChiTietPage() {
   ========================================================= */
 
   async function refreshVote() {
-    if (!participant) {
+    if (
+      !participant ||
+      !meetingId
+    ) {
       return;
     }
 
     await loadActiveVote(
+      meetingId,
       participant.id,
       participant.attendance_status
     );
@@ -1823,6 +1996,7 @@ export default function DaiBieuPhongHopChiTietPage() {
         </div>
 
       </header>
+
       {/* =====================================================
           CONTENT
       ===================================================== */}
@@ -1843,20 +2017,20 @@ export default function DaiBieuPhongHopChiTietPage() {
 
             <div className="min-w-0 flex-1">
 
-            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4">
 
-<h2 className="text-xl font-semibold text-emerald-900">
-  Tài liệu: {meeting.title}
-</h2>
+                <h2 className="text-xl font-semibold text-emerald-900">
+                  Tài liệu: {meeting.title}
+                </h2>
 
-<Link
-  href="/dai-bieu/phong-hop"
-  className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
->
-  ← Quay về phòng họp
-</Link>
+                <Link
+                  href="/dai-bieu/phong-hop"
+                  className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                >
+                  ← Quay về phòng họp
+                </Link>
 
-</div>
+              </div>
 
               {documents.length === 0 ? (
 
@@ -2185,10 +2359,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                   </div>
 
-                  {/* =================================================
-                      NỘI DUNG BIỂU QUYẾT
-                  ================================================= */}
-
                   <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-4">
 
                     <div className="flex items-start justify-between gap-3">
@@ -2210,10 +2380,6 @@ export default function DaiBieuPhongHopChiTietPage() {
                         )}
 
                       </div>
-
-                      {/* =================================================
-                          TRẠNG THÁI
-                      ================================================= */}
 
                       {activeVote.status ===
                         "Đang biểu quyết" ? (
@@ -2239,10 +2405,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                     </div>
 
-                    {/* =================================================
-                        CHƯA XÁC NHẬN THAM DỰ
-                    ================================================= */}
-
                     {participant.attendance_status !==
                       "Đã xác nhận tham dự" && (
 
@@ -2254,10 +2416,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                     )}
 
-                    {/* =================================================
-                        ĐANG BIỂU QUYẾT
-                    ================================================= */}
-
                     {activeVote.status ===
                       "Đang biểu quyết" &&
                       participant.attendance_status ===
@@ -2268,10 +2426,6 @@ export default function DaiBieuPhongHopChiTietPage() {
                         <p className="mb-3 text-xs font-semibold text-slate-600">
                           Lựa chọn của anh/chị:
                         </p>
-
-                        {/* =================================================
-                            ĐÃ CHỌN
-                        ================================================= */}
 
                         {voteChoice ? (
 
@@ -2353,10 +2507,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                         ) : (
 
-                          /* =================================================
-                             CHƯA BIỂU QUYẾT
-                          ================================================= */
-
                           <div>
 
                             <p className="mb-3 text-sm text-slate-700">
@@ -2408,10 +2558,6 @@ export default function DaiBieuPhongHopChiTietPage() {
                       </div>
 
                     )}
-
-                    {/* =================================================
-                        ĐÃ KẾT THÚC
-                    ================================================= */}
 
                     {activeVote.status ===
                       "Đã kết thúc" && (
@@ -2703,4 +2849,3 @@ export default function DaiBieuPhongHopChiTietPage() {
     </main>
   );
 }
-
