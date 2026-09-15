@@ -13,103 +13,135 @@ type Meeting = {
   id: number;
   title: string;
   status: string | null;
-  meeting_date: string | null;
-  start_time: string | null;
-};
-
-type MeetingDocument = {
-  id: number;
-  meeting_id: number;
-  title: string;
-  file_name: string | null;
-  file_path: string;
-  created_at: string;
 };
 
 type Participant = {
   id: number;
   meeting_id: number;
-  profile_id: string;
+  profile_id: string | null;
+  full_name: string | null;
+  position: string | null;
+  organization: string | null;
+  role: string | null;
   attendance_status: string | null;
-  absence_reason: string | null;
-  speaking_registered: boolean | null;
+  response_note: string | null;
+  response_at: string | null;
 };
 
-type Opinion = {
+type MeetingDocument = {
   id: number;
   meeting_id: number;
-  participant_id: number;
-  content: string | null;
+  name: string | null;
+  file_name: string | null;
   file_path: string | null;
-  created_at: string;
+  file_type: string | null;
+  status: string | null;
 };
 
-type Vote = {
+type SpeakingRegistration = {
+  id: number;
+  meeting_id: number;
+  participant_id: number | null;
+  speaker_name: string;
+  speaker_position: string | null;
+  content: string | null;
+  status: string;
+  registered_at: string;
+  opinion_type: string | null;
+  file_path: string | null;
+  file_name: string | null;
+};
+
+type MeetingVote = {
   id: number;
   meeting_id: number;
   title: string;
   description: string | null;
   status: string;
+  created_at: string;
+  closed_at: string | null;
 };
 
-type VoteItem = {
-  id: number;
-  vote_id: number;
-  label: string;
-  sort_order: number | null;
-};
-
-type VoteParticipant = {
+type MeetingVoteItem = {
   id: number;
   vote_id: number;
   participant_id: number;
-  selected_item_id: number | null;
+  choice: string | null;
+  voted_at: string | null;
 };
+
+type AttendanceChoice =
+  | "Đã xác nhận tham dự"
+  | "Không tham dự"
+  | null;
+
+type VoteChoice =
+  | "Đồng ý"
+  | "Không đồng ý"
+  | null;
 
 /* =========================================================
    PAGE
 ========================================================= */
 
-export default function DaiBieuPhongHopDetailPage() {
+export default function DaiBieuPhongHopChiTietPage() {
   const params = useParams();
 
-  /*
-   * [id] trên URL KHÔNG phải meetings.id.
-   *
-   * Ví dụ:
-   * /dai-bieu/phong-hop/1
-   *
-   * nghĩa là cuộc họp số 1 trong danh sách,
-   * sau đó mới tìm meetings.id thật.
-   */
-  const meetingOrder = Number(params.id);
+  const meetingId = Number(params.id);
 
-  const [meetingId, setMeetingId] = useState<number | null>(null);
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
+  /* =======================================================
+     CUỘC HỌP
+  ======================================================= */
 
-  const [documents, setDocuments] = useState<MeetingDocument[]>([]);
-  const [participant, setParticipant] = useState<Participant | null>(null);
-  const [opinions, setOpinions] = useState<Opinion[]>([]);
+  const [meeting, setMeeting] =
+    useState<Meeting | null>(null);
 
-  const [activeVote, setActiveVote] = useState<Vote | null>(null);
-  const [voteItems, setVoteItems] = useState<VoteItem[]>([]);
-  const [voteParticipant, setVoteParticipant] =
-    useState<VoteParticipant | null>(null);
+  /* =======================================================
+     ĐẠI BIỂU
+  ======================================================= */
 
-  const [attendanceChoice, setAttendanceChoice] =
-    useState<string>("");
+  const [participant, setParticipant] =
+    useState<Participant | null>(null);
 
-  const [absenceReason, setAbsenceReason] =
+  const [currentUserName, setCurrentUserName] =
     useState("");
 
-  const [speakingContent, setSpeakingContent] =
-    useState("");
+  /* =======================================================
+     TÀI LIỆU
+  ======================================================= */
 
-  const [speakingFile, setSpeakingFile] =
-    useState<File | null>(null);
+  const [documents, setDocuments] =
+    useState<MeetingDocument[]>([]);
 
-  const [selectedVoteItem, setSelectedVoteItem] =
-    useState<number | null>(null);
+  /* =======================================================
+     GÓP Ý / PHÁT BIỂU
+  ======================================================= */
+
+  const [registrations, setRegistrations] =
+    useState<SpeakingRegistration[]>([]);
+
+  /* =======================================================
+     BIỂU QUYẾT
+  ======================================================= */
+
+  const [activeVote, setActiveVote] =
+    useState<MeetingVote | null>(null);
+
+  const [myVote, setMyVote] =
+    useState<MeetingVoteItem | null>(null);
+
+  const [voteChoice, setVoteChoice] =
+    useState<VoteChoice>(null);
+
+  const [savingVote, setSavingVote] =
+    useState(false);
+
+  const [loadingVote, setLoadingVote] =
+    useState(false);
+
+  /* =======================================================
+     TRẠNG THÁI CHUNG
+  ======================================================= */
 
   const [loading, setLoading] =
     useState(true);
@@ -117,35 +149,58 @@ export default function DaiBieuPhongHopDetailPage() {
   const [error, setError] =
     useState("");
 
+  /* =======================================================
+     XÁC NHẬN THAM DỰ
+  ======================================================= */
+
+  const [attendanceChoice, setAttendanceChoice] =
+    useState<AttendanceChoice>(null);
+
+  const [absenceReason, setAbsenceReason] =
+    useState("");
+
   const [savingAttendance, setSavingAttendance] =
     useState(false);
+
+  /* =======================================================
+     GÓP Ý / PHÁT BIỂU
+  ======================================================= */
+
+  const [showSpeakingForm, setShowSpeakingForm] =
+    useState(false);
+
+  const [speakingContent, setSpeakingContent] =
+    useState("");
+
+  const [speakingFile, setSpeakingFile] =
+    useState<File | null>(null);
 
   const [savingSpeaking, setSavingSpeaking] =
     useState(false);
 
-  const [savingVote, setSavingVote] =
-    useState(false);
+  /* =======================================================
+     TÀI LIỆU
+  ======================================================= */
 
-  const [message, setMessage] =
-    useState("");
+  const [openingDocumentId, setOpeningDocumentId] =
+    useState<number | null>(null);
+
+  const [downloadingDocumentId, setDownloadingDocumentId] =
+    useState<number | null>(null);
 
   /* =========================================================
-     LOAD
+     LOAD PAGE
   ========================================================= */
 
   useEffect(() => {
-    if (
-      !Number.isInteger(meetingOrder) ||
-      meetingOrder < 1
-    ) {
-      setError("Số thứ tự cuộc họp không hợp lệ.");
+    if (!meetingId || Number.isNaN(meetingId)) {
+      setError("Mã cuộc họp không hợp lệ.");
       setLoading(false);
       return;
     }
 
     loadMeeting();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meetingOrder]);
+  }, [meetingId]);
 
   /* =========================================================
      LOAD MEETING
@@ -154,171 +209,65 @@ export default function DaiBieuPhongHopDetailPage() {
   async function loadMeeting() {
     setLoading(true);
     setError("");
-    setMessage("");
 
     try {
-      /* -------------------------------------------------------
-         AUTH
-      ------------------------------------------------------- */
+      /* =====================================================
+         1. USER ĐĂNG NHẬP
+      ===================================================== */
 
       const {
         data: { user },
-        error: authError,
+        error: userError,
       } = await supabase.auth.getUser();
-
-      if (authError) {
-        console.error(authError);
-      }
-
-      if (!user) {
-        setError("Không xác định được tài khoản đại biểu.");
+      console.log("===== DEBUG AUTH BIỂU QUYẾT =====");
+      console.log("AUTH USER ID:", user?.id);
+      console.log("AUTH USER EMAIL:", user?.email);
+      console.log("=================================");
+      if (userError || !user) {
+        setError("Phiên đăng nhập không hợp lệ.");
         setLoading(false);
         return;
       }
 
-      /* -------------------------------------------------------
-         1. LẤY TOÀN BỘ CUỘC HỌP
-         
-         Phải lấy toàn bộ danh sách để số thứ tự trên URL
-         thống nhất với danh sách quản trị/điều hành.
-      ------------------------------------------------------- */
+      /* =====================================================
+         2. CUỘC HỌP
+      ===================================================== */
 
       const {
-        data: allMeetings,
-        error: allMeetingsError,
+        data: meetingData,
+        error: meetingError,
       } = await supabase
         .from("meetings")
         .select(`
           id,
           title,
-          status,
-          meeting_date,
-          start_time
-        `);
-
-      if (allMeetingsError) {
-        console.error(allMeetingsError);
-
-        setError(
-          `Không thể tải danh sách cuộc họp: ${allMeetingsError.message}`
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      if (!allMeetings || allMeetings.length === 0) {
-        setError("Không có dữ liệu cuộc họp.");
-        setLoading(false);
-        return;
-      }
-
-      /* -------------------------------------------------------
-         2. SẮP XẾP GIỐNG TRANG QUẢN TRỊ
-         
-         Thứ tự:
-         - Chưa kết thúc lên trước
-         - Ngày mới hơn lên trước
-         - Giờ mới hơn lên trước
-         - ID lớn hơn lên trước để cố định thứ tự
-      ------------------------------------------------------- */
-
-      const sortedMeetings = [...allMeetings].sort(
-        (a, b) => {
-          const aFinished =
-            a.status === "Đã kết thúc";
-
-          const bFinished =
-            b.status === "Đã kết thúc";
-
-          if (aFinished !== bFinished) {
-            return aFinished ? 1 : -1;
-          }
-
-          const aDate =
-            a.meeting_date || "";
-
-          const bDate =
-            b.meeting_date || "";
-
-          if (aDate !== bDate) {
-            return bDate.localeCompare(aDate);
-          }
-
-          const aTime =
-            a.start_time || "";
-
-          const bTime =
-            b.start_time || "";
-
-          if (aTime !== bTime) {
-            return bTime.localeCompare(aTime);
-          }
-
-          return b.id - a.id;
-        }
-      );
-
-      /* -------------------------------------------------------
-         3. GIẢI MÃ SỐ THỨ TỰ → MEETINGS.ID
-      ------------------------------------------------------- */
-
-      const selectedMeeting =
-        sortedMeetings[meetingOrder - 1];
-
-      if (!selectedMeeting) {
-        setError(
-          `Không tìm thấy cuộc họp số ${meetingOrder}.`
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      const resolvedMeetingId =
-        selectedMeeting.id;
-
-      setMeetingId(resolvedMeetingId);
-      setMeeting(
-        selectedMeeting as Meeting
-      );
-
-      /* -------------------------------------------------------
-         4. TÀI LIỆU CUỘC HỌP
-      ------------------------------------------------------- */
-
-      const {
-        data: documentData,
-        error: documentError,
-      } = await supabase
-        .from("meeting_documents")
-        .select(`
-          id,
-          meeting_id,
-          title,
-          file_name,
-          file_path,
-          created_at
+          status
         `)
-        .eq(
-          "meeting_id",
-          resolvedMeetingId
-        )
-        .order("created_at", {
-          ascending: true,
-        });
+        .eq("id", meetingId)
+        .single();
 
-      if (documentError) {
-        console.error(documentError);
+      if (meetingError || !meetingData) {
+        console.error(
+          "LỖI TẢI CUỘC HỌP:",
+          meetingError
+        );
+
+        setError(
+          meetingError?.message ||
+            "Không tìm thấy cuộc họp."
+        );
+
+        setLoading(false);
+        return;
       }
 
-      setDocuments(
-        (documentData || []) as MeetingDocument[]
+      setMeeting(
+        meetingData as Meeting
       );
 
-      /* -------------------------------------------------------
-         5. PARTICIPANT CỦA ĐẠI BIỂU HIỆN TẠI
-      ------------------------------------------------------- */
+      /* =====================================================
+         3. ĐẠI BIỂU CỦA CUỘC HỌP
+      ===================================================== */
 
       const {
         data: participantData,
@@ -329,144 +278,214 @@ export default function DaiBieuPhongHopDetailPage() {
           id,
           meeting_id,
           profile_id,
+          full_name,
+          position,
+          organization,
+          role,
           attendance_status,
-          absence_reason,
-          speaking_registered
+          response_note,
+          response_at
         `)
-        .eq(
-          "meeting_id",
-          resolvedMeetingId
-        )
-        .eq(
-          "profile_id",
-          user.id
-        )
+        .eq("meeting_id", meetingId)
+        .eq("profile_id", user.id)
         .maybeSingle();
 
       if (participantError) {
-        console.error(participantError);
+        console.error(
+          "LỖI TẢI ĐẠI BIỂU:",
+          participantError
+        );
+
+        setError(
+          `Không thể xác định thành phần đại biểu: ${participantError.message}`
+        );
+
+        setLoading(false);
+        return;
+      }
+
+      if (!participantData) {
+        setError(
+          "Tài khoản này không thuộc thành phần được mời của cuộc họp."
+        );
+
+        setLoading(false);
+        return;
       }
 
       const currentParticipant =
-        participantData as Participant | null;
+        participantData as Participant;
 
       setParticipant(
         currentParticipant
       );
 
-      if (currentParticipant) {
+      /* =====================================================
+         TÊN ĐẠI BIỂU
+      ===================================================== */
+
+      setCurrentUserName(
+        currentParticipant.full_name ||
+          "Đại biểu"
+      );
+
+      /* =====================================================
+         4. TRẠNG THÁI THAM DỰ
+      ===================================================== */
+
+      if (
+        currentParticipant.attendance_status ===
+        "Đã xác nhận tham dự"
+      ) {
         setAttendanceChoice(
-          currentParticipant.attendance_status ||
-          ""
+          "Đã xác nhận tham dự"
+        );
+      } else if (
+        currentParticipant.attendance_status ===
+        "Không tham dự"
+      ) {
+        setAttendanceChoice(
+          "Không tham dự"
         );
 
         setAbsenceReason(
-          currentParticipant.absence_reason ||
-          ""
+          currentParticipant.response_note ||
+            ""
+        );
+      } else {
+        setAttendanceChoice(null);
+      }
+
+      /* =====================================================
+         5. TÀI LIỆU ĐÃ PHÁT HÀNH
+      ===================================================== */
+
+      const {
+        data: documentData,
+        error: documentError,
+      } = await supabase
+        .from("meeting_documents")
+        .select(`
+          id,
+          meeting_id,
+          name,
+          file_name,
+          file_path,
+          file_type,
+          status
+        `)
+        .eq("meeting_id", meetingId)
+        .eq("status", "Đã phát hành")
+        .order("id", {
+          ascending: true,
+        });
+
+      if (documentError) {
+        console.error(
+          "LỖI TẢI TÀI LIỆU:",
+          documentError
+        );
+
+        setDocuments([]);
+
+        setError(
+          `Không tải được tài liệu: ${documentError.message}`
+        );
+      } else {
+        console.log(
+          "TÀI LIỆU ĐÃ PHÁT HÀNH:",
+          documentData
+        );
+
+        setDocuments(
+          (documentData || []) as MeetingDocument[]
         );
       }
 
-      /* -------------------------------------------------------
-         6. Ý KIẾN / ĐĂNG KÝ PHÁT BIỂU
-      ------------------------------------------------------- */
+      /* =====================================================
+         6. GÓP Ý / PHÁT BIỂU
+      ===================================================== */
 
-      if (currentParticipant) {
-        const {
-          data: opinionData,
-          error: opinionError,
-        } = await supabase
-          .from("meeting_opinions")
-          .select(`
-            id,
-            meeting_id,
-            participant_id,
-            content,
-            file_path,
-            created_at
-          `)
-          .eq(
-            "meeting_id",
-            resolvedMeetingId
-          )
-          .eq(
-            "participant_id",
-            currentParticipant.id
-          )
-          .order("created_at", {
-            ascending: false,
-          });
+      const {
+        data: speakingData,
+        error: speakingError,
+      } = await supabase
+        .from("meeting_opinions")
+        .select(`
+          id,
+          meeting_id,
+          participant_id,
+          speaker_name,
+          speaker_position,
+          content,
+          status,
+          registered_at,
+          opinion_type,
+          file_path,
+          file_name
+        `)
+        .eq("meeting_id", meetingId)
+        .eq(
+          "participant_id",
+          currentParticipant.id
+        )
+        .order("registered_at", {
+          ascending: false,
+        });
 
-        if (opinionError) {
-          console.error(opinionError);
-        }
-
-        setOpinions(
-          (opinionData || []) as Opinion[]
+      if (!speakingError) {
+        setRegistrations(
+          (speakingData || []) as SpeakingRegistration[]
+        );
+      } else {
+        console.warn(
+          "Không tải được ý kiến:",
+          speakingError.message
         );
 
-        /* -----------------------------------------------------
-           Nếu đã có ý kiến cũ thì hiển thị nội dung mới nhất
-        ----------------------------------------------------- */
-
-        if (
-          opinionData &&
-          opinionData.length > 0
-        ) {
-          setSpeakingContent(
-            opinionData[0].content || ""
-          );
-        }
-
-        /* -----------------------------------------------------
-           7. PHIẾU BIỂU QUYẾT ĐANG MỞ
-        ----------------------------------------------------- */
-
-        await loadActiveVote(
-          resolvedMeetingId,
-          currentParticipant.id,
-          currentParticipant.attendance_status
-        );
+        setRegistrations([]);
       }
+
+      /* =====================================================
+         7. BIỂU QUYẾT
+      ===================================================== */
+
+      await loadActiveVote(
+        currentParticipant.id,
+        currentParticipant.attendance_status
+      );
+
     } catch (err) {
-      console.error(err);
+      console.error(
+        "LỖI LOAD TRANG PHÒNG HỌP:",
+        err
+      );
 
       setError(
-        "Đã xảy ra lỗi khi tải hồ sơ cuộc họp."
+        "Có lỗi xảy ra khi tải thông tin cuộc họp."
       );
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   }
 
   /* =========================================================
-     LOAD ACTIVE VOTE
+     LOAD BIỂU QUYẾT
   ========================================================= */
 
   async function loadActiveVote(
-    targetMeetingId: number,
     participantId: number,
     attendanceStatus: string | null
   ) {
-    try {
-      /*
-       * Chỉ hiển thị biểu quyết khi đại biểu được xác nhận
-       * tham dự.
-       */
-      if (
-        attendanceStatus !== "Tham dự"
-      ) {
-        setActiveVote(null);
-        setVoteItems([]);
-        setVoteParticipant(null);
-        return;
-      }
+    setLoadingVote(true);
 
-      /* -------------------------------------------------------
-         Lấy phiếu đang mở
-      ------------------------------------------------------- */
+    try {
+      /* =====================================================
+         1. LẤY BIỂU QUYẾT ĐANG MỞ HOẶC ĐÃ KẾT THÚC
+      ===================================================== */
 
       const {
-        data: voteData,
+        data: voteDataList,
         error: voteError,
       } = await supabase
         .from("meeting_votes")
@@ -475,85 +494,56 @@ export default function DaiBieuPhongHopDetailPage() {
           meeting_id,
           title,
           description,
-          status
+          status,
+          created_at,
+          closed_at
         `)
-        .eq(
-          "meeting_id",
-          targetMeetingId
-        )
-        .eq(
-          "status",
-          "Đang mở"
-        )
-        .order("id", {
+        .eq("meeting_id", meetingId)
+        .in("status", [
+          "Đang biểu quyết",
+          "Đã kết thúc",
+        ])
+        .order("created_at", {
           ascending: false,
-        })
-        .limit(1)
-        .maybeSingle();
-
-      if (voteError) {
-        console.error(voteError);
-
-        setActiveVote(null);
-        setVoteItems([]);
-        setVoteParticipant(null);
-        return;
-      }
-
-      if (!voteData) {
-        setActiveVote(null);
-        setVoteItems([]);
-        setVoteParticipant(null);
-        return;
-      }
-
-      const currentVote =
-        voteData as Vote;
-
-      setActiveVote(
-        currentVote
-      );
-
-      /* -------------------------------------------------------
-         Lấy phương án biểu quyết
-      ------------------------------------------------------- */
-
-      const {
-        data: itemsData,
-        error: itemsError,
-      } = await supabase
-        .from("meeting_vote_items")
-        .select(`
-          id,
-          vote_id,
-          label,
-          sort_order
-        `)
-        .eq(
-          "vote_id",
-          currentVote.id
-        )
-        .order("sort_order", {
-          ascending: true,
-        })
-        .order("id", {
-          ascending: true,
         });
 
-      if (itemsError) {
-        console.error(itemsError);
+      if (voteError) {
+        console.error(
+          "LỖI TẢI BIỂU QUYẾT:",
+          voteError
+        );
+
+        setActiveVote(null);
+        setMyVote(null);
+        setVoteChoice(null);
+
+        return;
       }
 
-      const currentItems =
-        (itemsData || []) as VoteItem[];
-
-      setVoteItems(
-        currentItems
+      console.log(
+        "BIỂU QUYẾT CỦA CUỘC HỌP:",
+        voteDataList
       );
 
-      /* -------------------------------------------------------
-         Lấy trạng thái tham gia biểu quyết
-      ------------------------------------------------------- */
+      if (
+        !voteDataList ||
+        voteDataList.length === 0
+      ) {
+        setActiveVote(null);
+        setMyVote(null);
+        setVoteChoice(null);
+
+        return;
+      }
+
+      /* =====================================================
+         2. LẤY DANH SÁCH BIỂU QUYẾT ĐẠI BIỂU ĐƯỢC NHẬN
+      ===================================================== */
+
+      const voteIds =
+        voteDataList.map(
+          (vote) => vote.id
+        );
 
       const {
         data: voteParticipantData,
@@ -563,12 +553,118 @@ export default function DaiBieuPhongHopDetailPage() {
         .select(`
           id,
           vote_id,
+          participant_id
+        `)
+        .eq(
+          "participant_id",
+          participantId
+        )
+        .in(
+          "vote_id",
+          voteIds
+        );
+
+      if (voteParticipantError) {
+        console.error(
+          "LỖI TẢI DANH SÁCH NHẬN PHIẾU:",
+          voteParticipantError
+        );
+
+        setActiveVote(null);
+        setMyVote(null);
+        setVoteChoice(null);
+
+        return;
+      }
+
+      console.log(
+        "ĐẠI BIỂU ĐƯỢC NHẬN PHIẾU:",
+        voteParticipantData
+      );
+
+      /* =====================================================
+         3. LỌC CÁC BIỂU QUYẾT ĐƯỢC NHẬN
+      ===================================================== */
+
+      const allowedVoteIds =
+        (
+          voteParticipantData || []
+        ).map(
+          (item) => item.vote_id
+        );
+
+      const availableVotes =
+        voteDataList.filter(
+          (vote) =>
+            allowedVoteIds.includes(
+              vote.id
+            )
+        );
+
+      console.log(
+        "BIỂU QUYẾT ĐẠI BIỂU ĐƯỢC THAM GIA:",
+        availableVotes
+      );
+
+      if (
+        availableVotes.length === 0
+      ) {
+        setActiveVote(null);
+        setMyVote(null);
+        setVoteChoice(null);
+
+        return;
+      }
+
+      /* =====================================================
+         4. CHỌN BIỂU QUYẾT MỚI NHẤT
+      ===================================================== */
+
+      const voteData =
+        availableVotes[0] as MeetingVote;
+
+      setActiveVote(
+        voteData
+      );
+
+      console.log(
+        "BIỂU QUYẾT ĐANG HIỂN THỊ:",
+        voteData
+      );
+
+      /* =====================================================
+         5. NẾU CHƯA XÁC NHẬN THAM DỰ
+      ===================================================== */
+
+      if (
+        attendanceStatus !==
+        "Đã xác nhận tham dự"
+      ) {
+        setMyVote(null);
+        setVoteChoice(null);
+
+        return;
+      }
+
+      /* =====================================================
+         6. TÌM PHIẾU ĐÃ BỎ
+      ===================================================== */
+
+      const {
+        data: voteItemData,
+        error: voteItemError,
+      } = await supabase
+        .from("meeting_vote_items")
+        .select(`
+          id,
+          vote_id,
           participant_id,
-          selected_item_id
+          choice,
+          voted_at
         `)
         .eq(
           "vote_id",
-          currentVote.id
+          voteData.id
         )
         .eq(
           "participant_id",
@@ -576,234 +672,312 @@ export default function DaiBieuPhongHopDetailPage() {
         )
         .maybeSingle();
 
-      if (voteParticipantError) {
+      if (voteItemError) {
         console.error(
-          voteParticipantError
+          "LỖI TẢI PHIẾU CỦA ĐẠI BIỂU:",
+          voteItemError
+        );
+
+        setMyVote(null);
+        setVoteChoice(null);
+
+        return;
+      }
+
+      console.log(
+        "PHIẾU CỦA ĐẠI BIỂU:",
+        voteItemData
+      );
+
+      /* =====================================================
+         7. ĐÃ CÓ PHIẾU
+      ===================================================== */
+
+      if (voteItemData) {
+        const currentVoteItem =
+          voteItemData as MeetingVoteItem;
+
+        setMyVote(
+          currentVoteItem
+        );
+
+        if (
+          currentVoteItem.choice ===
+            "Đồng ý" ||
+          currentVoteItem.choice ===
+            "Không đồng ý"
+        ) {
+          setVoteChoice(
+            currentVoteItem.choice as VoteChoice
+          );
+        } else {
+          setVoteChoice(null);
+        }
+
+        console.log(
+          "ĐÃ TÌM THẤY PHIẾU ĐÃ BỎ:",
+          currentVoteItem
+        );
+      } else {
+        setMyVote(null);
+        setVoteChoice(null);
+
+        console.log(
+          "ĐẠI BIỂU CHƯA BỎ PHIẾU"
         );
       }
 
-      const currentVoteParticipant =
-        voteParticipantData as VoteParticipant | null;
-
-      setVoteParticipant(
-        currentVoteParticipant
-      );
-
-      setSelectedVoteItem(
-        currentVoteParticipant?.selected_item_id ||
-        null
-      );
     } catch (err) {
-      console.error(err);
+      console.error(
+        "LỖI LOAD BIỂU QUYẾT:",
+        err
+      );
 
       setActiveVote(null);
-      setVoteItems([]);
-      setVoteParticipant(null);
+      setMyVote(null);
+      setVoteChoice(null);
+
+    } finally {
+      setLoadingVote(false);
     }
   }
 
   /* =========================================================
-     CONFIRM ATTENDANCE
+     XÁC NHẬN THAM DỰ
   ========================================================= */
 
   async function confirmAttendance() {
-    if (!participant || !meetingId) {
-      return;
-    }
-
-    if (!attendanceChoice) {
-      setMessage(
-        "Vui lòng chọn tình trạng tham dự."
-      );
+    if (
+      !participant ||
+      !attendanceChoice
+    ) {
       return;
     }
 
     if (
-      attendanceChoice === "Không tham dự" &&
+      attendanceChoice ===
+        "Không tham dự" &&
       !absenceReason.trim()
     ) {
-      setMessage(
+      setError(
         "Vui lòng nhập lý do không tham dự."
       );
+
       return;
     }
 
     setSavingAttendance(true);
-    setMessage("");
+    setError("");
+
+    const responseNote =
+      attendanceChoice ===
+      "Không tham dự"
+        ? absenceReason.trim()
+        : null;
+
+    const responseAt =
+      new Date().toISOString();
+
+    const {
+      error: updateError,
+    } = await supabase
+      .from("meeting_participants")
+      .update({
+        attendance_status:
+          attendanceChoice,
+        response_note:
+          responseNote,
+        response_at:
+          responseAt,
+      })
+      .eq(
+        "id",
+        participant.id
+      );
+
+    if (updateError) {
+      console.error(
+        "LỖI CẬP NHẬT THAM DỰ:",
+        updateError
+      );
+
+      setError(
+        `Không thể cập nhật xác nhận tham dự: ${updateError.message}`
+      );
+
+      setSavingAttendance(false);
+      return;
+    }
+
+    const updatedParticipant: Participant = {
+      ...participant,
+      attendance_status:
+        attendanceChoice,
+      response_note:
+        responseNote,
+      response_at:
+        responseAt,
+    };
+
+    setParticipant(
+      updatedParticipant
+    );
+
+    await loadActiveVote(
+      participant.id,
+      attendanceChoice
+    );
+
+    setSavingAttendance(false);
+  }
+
+  /* =========================================================
+     MỞ TÀI LIỆU
+  ========================================================= */
+
+  async function openDocument(
+    doc: MeetingDocument
+  ) {
+    if (!doc.file_path) {
+      setError(
+        "Tài liệu chưa có đường dẫn tệp."
+      );
+
+      return;
+    }
+
+    setOpeningDocumentId(
+      doc.id
+    );
+
     setError("");
 
     try {
       const {
-        error: updateError,
-      } = await supabase
-        .from("meeting_participants")
-        .update({
-          attendance_status:
-            attendanceChoice,
-          absence_reason:
-            attendanceChoice === "Không tham dự"
-              ? absenceReason.trim()
-              : null,
-        })
-        .eq(
-          "id",
-          participant.id
+        data,
+        error: signedUrlError,
+      } = await supabase.storage
+        .from("meeting-documents")
+        .createSignedUrl(
+          doc.file_path,
+          300
         );
 
-      if (updateError) {
-        console.error(updateError);
+      if (
+        signedUrlError ||
+        !data?.signedUrl
+      ) {
+        console.error(
+          "LỖI MỞ TÀI LIỆU:",
+          signedUrlError
+        );
 
-        setMessage(
-          `Không thể cập nhật xác nhận tham dự: ${updateError.message}`
+        setError(
+          `Không thể mở tài liệu: ${
+            signedUrlError?.message ||
+            "Không xác định"
+          }`
         );
 
         return;
       }
 
-      const updatedParticipant: Participant = {
-        ...participant,
-        attendance_status:
-          attendanceChoice,
-        absence_reason:
-          attendanceChoice === "Không tham dự"
-            ? absenceReason.trim()
-            : null,
-      };
-
-      setParticipant(
-        updatedParticipant
+      window.open(
+        data.signedUrl,
+        "_blank",
+        "noopener,noreferrer"
       );
 
-      await loadActiveVote(
-        meetingId,
-        participant.id,
-        attendanceChoice
-      );
-
-      setMessage(
-        "Đã cập nhật xác nhận tham dự."
-      );
     } finally {
-      setSavingAttendance(false);
-    }
-  }
-
-  /* =========================================================
-     REFRESH VOTE
-  ========================================================= */
-
-  async function refreshVote() {
-    if (
-      !participant ||
-      !meetingId
-    ) {
-      return;
-    }
-
-    await loadActiveVote(
-      meetingId,
-      participant.id,
-      participant.attendance_status
-    );
-  }
-
-  /* =========================================================
-     CAST VOTE
-  ========================================================= */
-
-  async function castVote() {
-    if (
-      !activeVote ||
-      !participant ||
-      !selectedVoteItem
-    ) {
-      setMessage(
-        "Vui lòng chọn một phương án biểu quyết."
+      setOpeningDocumentId(
+        null
       );
+    }
+  }
+
+  /* =========================================================
+     TẢI TÀI LIỆU
+  ========================================================= */
+
+  async function downloadDocument(
+    doc: MeetingDocument
+  ) {
+    if (!doc.file_path) {
+      setError(
+        "Tài liệu chưa có đường dẫn tệp."
+      );
+
       return;
     }
 
-    setSavingVote(true);
-    setMessage("");
+    setDownloadingDocumentId(
+      doc.id
+    );
+
     setError("");
 
     try {
-      if (voteParticipant) {
-        const {
-          error: updateError,
-        } = await supabase
-          .from("meeting_vote_participants")
-          .update({
-            selected_item_id:
-              selectedVoteItem,
-          })
-          .eq(
-            "id",
-            voteParticipant.id
-          );
-
-        if (updateError) {
-          console.error(updateError);
-
-          setMessage(
-            `Không thể cập nhật biểu quyết: ${updateError.message}`
-          );
-
-          return;
-        }
-
-        setVoteParticipant({
-          ...voteParticipant,
-          selected_item_id:
-            selectedVoteItem,
-        });
-      } else {
-        const {
-          data,
-          error: insertError,
-        } = await supabase
-          .from("meeting_vote_participants")
-          .insert({
-            vote_id:
-              activeVote.id,
-            participant_id:
-              participant.id,
-            selected_item_id:
-              selectedVoteItem,
-          })
-          .select(`
-            id,
-            vote_id,
-            participant_id,
-            selected_item_id
-          `)
-          .single();
-
-        if (insertError) {
-          console.error(insertError);
-
-          setMessage(
-            `Không thể gửi biểu quyết: ${insertError.message}`
-          );
-
-          return;
-        }
-
-        setVoteParticipant(
-          data as VoteParticipant
+      const {
+        data,
+        error: downloadError,
+      } = await supabase.storage
+        .from("meeting-documents")
+        .download(
+          doc.file_path
         );
+
+      if (
+        downloadError ||
+        !data
+      ) {
+        console.error(
+          "LỖI TẢI TÀI LIỆU:",
+          downloadError
+        );
+
+        setError(
+          `Không thể tải tài liệu: ${
+            downloadError?.message ||
+            "Không xác định"
+          }`
+        );
+
+        return;
       }
 
-      setMessage(
-        "Đã ghi nhận ý kiến biểu quyết."
+      const url =
+        URL.createObjectURL(data);
+
+      const link =
+        window.document.createElement(
+          "a"
+        );
+
+      link.href = url;
+
+      link.download =
+        doc.file_name ||
+        "tai-lieu-cuoc-hop";
+
+      window.document.body.appendChild(
+        link
       );
+
+      link.click();
+
+      link.remove();
+
+      URL.revokeObjectURL(url);
+
     } finally {
-      setSavingVote(false);
+      setDownloadingDocumentId(
+        null
+      );
     }
   }
 
   /* =========================================================
-     REGISTER SPEAKING
+     GỬI GÓP Ý / PHÁT BIỂU
   ========================================================= */
 
   async function registerSpeaking() {
@@ -818,40 +992,43 @@ export default function DaiBieuPhongHopDetailPage() {
       !speakingContent.trim() &&
       !speakingFile
     ) {
-      setMessage(
-        "Vui lòng nhập nội dung ý kiến hoặc chọn tệp."
+      setError(
+        "Vui lòng nhập nội dung góp ý hoặc chọn file góp ý."
       );
+
       return;
     }
 
     setSavingSpeaking(true);
-    setMessage("");
     setError("");
 
     try {
       let filePath: string | null =
         null;
 
-      /* -------------------------------------------------------
-         Upload file nếu có
-      ------------------------------------------------------- */
+      let fileName: string | null =
+        null;
+
+      /* =====================================================
+         UPLOAD FILE
+      ===================================================== */
 
       if (speakingFile) {
-        const safeFileName =
+        const safeName =
           speakingFile.name.replace(
             /[^a-zA-Z0-9._-]/g,
             "_"
           );
 
-        const filePathToUpload =
-          `opinions/${meeting.id}/${participant.id}/${Date.now()}-${safeFileName}`;
+        const path =
+          `opinions/${meeting.id}/${participant.id}/${Date.now()}-${safeName}`;
 
         const {
           error: uploadError,
         } = await supabase.storage
           .from("meeting-documents")
           .upload(
-            filePathToUpload,
+            path,
             speakingFile,
             {
               upsert: true,
@@ -859,175 +1036,642 @@ export default function DaiBieuPhongHopDetailPage() {
           );
 
         if (uploadError) {
-          console.error(uploadError);
+          console.error(
+            "LỖI UPLOAD GÓP Ý:",
+            uploadError
+          );
 
-          setMessage(
-            `Không thể tải tệp lên: ${uploadError.message}`
+          setError(
+            `Không thể tải file góp ý: ${uploadError.message}`
           );
 
           return;
         }
 
-        filePath =
-          filePathToUpload;
+        filePath = path;
+        fileName =
+          speakingFile.name;
       }
 
-      /* -------------------------------------------------------
-         Lưu ý kiến
-      ------------------------------------------------------- */
+      /* =====================================================
+         KIỂM TRA GÓP Ý ĐÃ CÓ
+      ===================================================== */
 
       const {
-        data: opinionData,
-        error: opinionError,
+        data: existingData,
+        error: existingError,
       } = await supabase
         .from("meeting_opinions")
-        .insert({
-          meeting_id:
-            meeting.id,
-          participant_id:
-            participant.id,
-          content:
-            speakingContent.trim() ||
-            null,
-          file_path:
-            filePath,
-        })
         .select(`
           id,
           meeting_id,
           participant_id,
+          speaker_name,
+          speaker_position,
           content,
+          status,
+          registered_at,
+          opinion_type,
           file_path,
-          created_at
+          file_name
         `)
-        .single();
+        .eq(
+          "meeting_id",
+          meeting.id
+        )
+        .eq(
+          "participant_id",
+          participant.id
+        )
+        .order("registered_at", {
+          ascending: false,
+        })
+        .limit(1)
+        .maybeSingle();
 
-      if (opinionError) {
-        console.error(opinionError);
+      if (existingError) {
+        console.error(
+          "LỖI KIỂM TRA GÓP Ý:",
+          existingError
+        );
 
-        setMessage(
-          `Không thể gửi ý kiến: ${opinionError.message}`
+        setError(
+          `Không thể kiểm tra góp ý đã gửi: ${existingError.message}`
         );
 
         return;
       }
 
-      setOpinions((current) => [
-        opinionData as Opinion,
-        ...current,
-      ]);
+      /* =====================================================
+         ĐÃ CÓ → UPDATE
+      ===================================================== */
 
-      /* -------------------------------------------------------
-         Đánh dấu đã đăng ký phát biểu
-      ------------------------------------------------------- */
+      if (existingData) {
+        const {
+          data: updatedData,
+          error: updateError,
+        } = await supabase
+          .from("meeting_opinions")
+          .update({
+            content:
+              speakingContent.trim() ||
+              existingData.content ||
+              null,
 
-      const {
-        error: participantUpdateError,
-      } = await supabase
-        .from("meeting_participants")
-        .update({
-          speaking_registered: true,
-        })
-        .eq(
-          "id",
-          participant.id
-        );
+            file_path:
+              filePath ||
+              existingData.file_path ||
+              null,
 
-      if (participantUpdateError) {
-        console.error(
-          participantUpdateError
-        );
+            file_name:
+              fileName ||
+              existingData.file_name ||
+              null,
+
+            registered_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            existingData.id
+          )
+          .select(`
+            id,
+            meeting_id,
+            participant_id,
+            speaker_name,
+            speaker_position,
+            content,
+            status,
+            registered_at,
+            opinion_type,
+            file_path,
+            file_name
+          `)
+          .single();
+
+        if (updateError) {
+          console.error(
+            "LỖI UPDATE GÓP Ý:",
+            updateError
+          );
+
+          setError(
+            `Không thể cập nhật góp ý: ${updateError.message}`
+          );
+
+          return;
+        }
+
+        if (updatedData) {
+          setRegistrations([
+            updatedData as SpeakingRegistration,
+          ]);
+        }
+
+      } else {
+        /* ===================================================
+           CHƯA CÓ → INSERT
+        =================================================== */
+
+        const {
+          data: insertedData,
+          error: insertError,
+        } = await supabase
+          .from("meeting_opinions")
+          .insert({
+            meeting_id:
+              meeting.id,
+
+            participant_id:
+              participant.id,
+
+            speaker_name:
+              participant.full_name ||
+              "Đại biểu",
+
+            speaker_position:
+              participant.position ||
+              null,
+
+            content:
+              speakingContent.trim() ||
+              null,
+
+            status:
+              "Đăng ký phát biểu",
+
+            registered_at:
+              new Date().toISOString(),
+
+            opinion_type:
+              "Góp ý cuộc họp",
+
+            file_path:
+              filePath,
+
+            file_name:
+              fileName,
+          })
+          .select(`
+            id,
+            meeting_id,
+            participant_id,
+            speaker_name,
+            speaker_position,
+            content,
+            status,
+            registered_at,
+            opinion_type,
+            file_path,
+            file_name
+          `)
+          .single();
+
+        if (insertError) {
+          console.error(
+            "LỖI INSERT GÓP Ý:",
+            insertError
+          );
+
+          setError(
+            `Không thể gửi góp ý: ${insertError.message}`
+          );
+
+          return;
+        }
+
+        if (insertedData) {
+          setRegistrations([
+            insertedData as SpeakingRegistration,
+          ]);
+        }
       }
-
-      setParticipant({
-        ...participant,
-        speaking_registered: true,
-      });
 
       setSpeakingContent("");
       setSpeakingFile(null);
+      setShowSpeakingForm(false);
 
-      setMessage(
-        "Đã gửi đăng ký phát biểu/ý kiến."
+    } catch (err) {
+      console.error(
+        "LỖI GÓP Ý:",
+        err
       );
+
+      setError(
+        "Có lỗi xảy ra khi gửi góp ý."
+      );
+
     } finally {
       setSavingSpeaking(false);
     }
   }
 
   /* =========================================================
-     VIEW DOCUMENT
+     BIỂU QUYẾT
   ========================================================= */
 
-  async function openDocument(
-    filePath: string
+  async function castVote(
+    choice:
+      | "Đồng ý"
+      | "Không đồng ý"
   ) {
-    const {
-      data,
-      error: signedUrlError,
-    } = await supabase.storage
-      .from("meeting-documents")
-      .createSignedUrl(
-        filePath,
-        60 * 60
-      );
+    if (
+      !participant ||
+      !activeVote
+    ) {
+      return;
+    }
 
-    if (signedUrlError) {
-      console.error(
-        signedUrlError
-      );
+    /* =====================================================
+       1. CHỈ ĐƯỢC BIỂU QUYẾT KHI ĐANG BIỂU QUYẾT
+    ===================================================== */
 
-      setMessage(
-        `Không thể mở tài liệu: ${signedUrlError.message}`
+    if (
+      activeVote.status !==
+      "Đang biểu quyết"
+    ) {
+      setError(
+        "Biểu quyết đã kết thúc, không thể thay đổi phiếu."
       );
 
       return;
     }
 
-    if (data?.signedUrl) {
-      window.open(
-        data.signedUrl,
-        "_blank",
-        "noopener,noreferrer"
+    /* =====================================================
+       2. PHẢI ĐÃ XÁC NHẬN THAM DỰ
+    ===================================================== */
+
+    if (
+      participant.attendance_status !==
+      "Đã xác nhận tham dự"
+    ) {
+      setError(
+        "Chỉ đại biểu đã xác nhận tham dự mới được biểu quyết."
       );
-    }
-  }
 
-  /* =========================================================
-     FORMAT DATE
-  ========================================================= */
-
-  function formatDate(
-    date: string | null
-  ) {
-    if (!date) {
-      return "Chưa xác định";
+      return;
     }
 
-    return new Date(
-      `${date}T00:00:00`
-    ).toLocaleDateString(
-      "vi-VN",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
+    setSavingVote(true);
+    setError("");
+
+    const votedAt =
+      new Date().toISOString();
+
+    try {
+      /* =====================================================
+         3. ĐÃ CÓ PHIẾU TRONG STATE → UPDATE
+      ===================================================== */
+
+      if (myVote) {
+        const {
+          data: updatedVote,
+          error: updateError,
+        } = await supabase
+          .from("meeting_vote_items")
+          .update({
+            choice,
+            voted_at:
+              votedAt,
+          })
+          .eq(
+            "id",
+            myVote.id
+          )
+          .eq(
+            "vote_id",
+            activeVote.id
+          )
+          .eq(
+            "participant_id",
+            participant.id
+          )
+          .select(`
+            id,
+            vote_id,
+            participant_id,
+            choice,
+            voted_at
+          `)
+          .single();
+
+        if (updateError) {
+          console.error(
+            "LỖI UPDATE PHIẾU:",
+            updateError
+          );
+
+          setError(
+            `Không thể thay đổi phiếu biểu quyết: ${
+              updateError.message ||
+              "Lỗi không xác định"
+            }`
+          );
+
+          return;
+        }
+
+        if (updatedVote) {
+          setMyVote(
+            updatedVote as MeetingVoteItem
+          );
+
+          setVoteChoice(
+            choice
+          );
+        }
+
+        return;
       }
-    );
+
+      /* =====================================================
+         4. KIỂM TRA DATABASE TRƯỚC KHI INSERT
+      ===================================================== */
+
+      const {
+        data: existingVote,
+        error: existingVoteError,
+      } = await supabase
+        .from("meeting_vote_items")
+        .select(`
+          id,
+          vote_id,
+          participant_id,
+          choice,
+          voted_at
+        `)
+        .eq(
+          "vote_id",
+          activeVote.id
+        )
+        .eq(
+          "participant_id",
+          participant.id
+        )
+        .maybeSingle();
+
+      if (existingVoteError) {
+        console.error(
+          "LỖI KIỂM TRA PHIẾU TRƯỚC KHI INSERT:",
+          existingVoteError
+        );
+
+        setError(
+          `Không thể kiểm tra phiếu hiện tại: ${
+            existingVoteError.message ||
+            "Lỗi không xác định"
+          }`
+        );
+
+        return;
+      }
+
+      /* =====================================================
+         5. PHIẾU ĐÃ TỒN TẠI → UPDATE
+      ===================================================== */
+
+      if (existingVote) {
+        const {
+          data: updatedVote,
+          error: updateError,
+        } = await supabase
+          .from("meeting_vote_items")
+          .update({
+            choice,
+            voted_at:
+              votedAt,
+          })
+          .eq(
+            "id",
+            existingVote.id
+          )
+          .select(`
+            id,
+            vote_id,
+            participant_id,
+            choice,
+            voted_at
+          `)
+          .single();
+
+        if (updateError) {
+          console.error(
+            "LỖI UPDATE PHIẾU ĐÃ TỒN TẠI:",
+            updateError
+          );
+
+          setError(
+            `Không thể cập nhật phiếu: ${
+              updateError.message ||
+              "Lỗi không xác định"
+            }`
+          );
+
+          return;
+        }
+
+        if (updatedVote) {
+          setMyVote(
+            updatedVote as MeetingVoteItem
+          );
+
+          setVoteChoice(
+            choice
+          );
+        }
+
+        return;
+      }
+
+      /* =====================================================
+         6. CHƯA CÓ PHIẾU → INSERT
+      ===================================================== */
+
+      const {
+        data: insertedVote,
+        error: insertError,
+      } = await supabase
+        .from("meeting_vote_items")
+        .insert({
+          vote_id:
+            activeVote.id,
+
+          participant_id:
+            participant.id,
+
+          choice,
+
+          voted_at:
+            votedAt,
+        })
+        .select(`
+          id,
+          vote_id,
+          participant_id,
+          choice,
+          voted_at
+        `)
+        .single();
+
+      if (insertError) {
+        console.error(
+          "LỖI INSERT PHIẾU BIỂU QUYẾT:",
+          {
+            message:
+              insertError.message,
+
+            details:
+              insertError.details,
+
+            hint:
+              insertError.hint,
+
+            code:
+              insertError.code,
+          }
+        );
+
+        /* ===================================================
+           THỬ ĐỌC LẠI PHIẾU
+
+           Nếu request khác vừa tạo phiếu,
+           chuyển sang UPDATE.
+        =================================================== */
+
+        const {
+          data: retryExistingVote,
+          error: retryError,
+        } = await supabase
+          .from("meeting_vote_items")
+          .select(`
+            id,
+            vote_id,
+            participant_id,
+            choice,
+            voted_at
+          `)
+          .eq(
+            "vote_id",
+            activeVote.id
+          )
+          .eq(
+            "participant_id",
+            participant.id
+          )
+          .maybeSingle();
+
+        if (
+          !retryError &&
+          retryExistingVote
+        ) {
+          const {
+            data: recoveredVote,
+            error: recoveredUpdateError,
+          } = await supabase
+            .from("meeting_vote_items")
+            .update({
+              choice,
+              voted_at:
+                votedAt,
+            })
+            .eq(
+              "id",
+              retryExistingVote.id
+            )
+            .select(`
+              id,
+              vote_id,
+              participant_id,
+              choice,
+              voted_at
+            `)
+            .single();
+
+          if (
+            recoveredUpdateError
+          ) {
+            console.error(
+              "LỖI UPDATE PHIẾU SAU KHI INSERT:",
+              recoveredUpdateError
+            );
+
+            setError(
+              `Không thể cập nhật phiếu: ${
+                recoveredUpdateError.message ||
+                "Lỗi không xác định"
+              }`
+            );
+
+            return;
+          }
+
+          if (recoveredVote) {
+            setMyVote(
+              recoveredVote as MeetingVoteItem
+            );
+
+            setVoteChoice(
+              choice
+            );
+          }
+
+          return;
+        }
+
+        setError(
+          `Không thể ghi nhận phiếu biểu quyết: ${
+            insertError.message ||
+            insertError.code ||
+            "Lỗi không xác định"
+          }`
+        );
+
+        return;
+      }
+
+      /* =====================================================
+         7. INSERT THÀNH CÔNG
+      ===================================================== */
+
+      if (insertedVote) {
+        setMyVote(
+          insertedVote as MeetingVoteItem
+        );
+
+        setVoteChoice(
+          choice
+        );
+      }
+
+    } catch (err) {
+      console.error(
+        "LỖI CAST VOTE:",
+        err
+      );
+
+      setError(
+        "Có lỗi xảy ra khi biểu quyết."
+      );
+
+    } finally {
+      setSavingVote(false);
+    }
   }
 
   /* =========================================================
-     FORMAT TIME
+     REFRESH BIỂU QUYẾT
   ========================================================= */
 
-  function formatTime(
-    time: string | null
-  ) {
-    if (!time) {
-      return "";
+  async function refreshVote() {
+    if (!participant) {
+      return;
     }
 
-    return time.slice(0, 5);
+    await loadActiveVote(
+      participant.id,
+      participant.attendance_status
+    );
   }
 
   /* =========================================================
@@ -1037,33 +1681,21 @@ export default function DaiBieuPhongHopDetailPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-100">
-        <header className="border-b border-emerald-800 bg-emerald-700 text-white">
-          <div className="mx-auto flex max-w-7xl items-center px-5 py-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white">
-              <img
-                src="/logo-doan.png"
-                alt="Logo Đoàn"
-                className="h-8 w-8 object-contain"
-              />
-            </div>
 
-            <div className="ml-3">
-              <h1 className="text-lg font-bold">
-                PHÒNG HỌP KHÔNG GIẤY
-              </h1>
+        <div className="mx-auto max-w-6xl px-5 py-10">
 
-              <p className="text-xs text-emerald-100">
-                Hồ sơ cuộc họp
-              </p>
-            </div>
+          <div className="py-16 text-center">
+
+            <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-600" />
+
+            <p className="mt-4 text-sm text-slate-500">
+              Đang tải thông tin cuộc họp...
+            </p>
+
           </div>
-        </header>
 
-        <div className="mx-auto max-w-5xl px-5 py-10">
-          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 shadow-sm">
-            Đang tải hồ sơ cuộc họp...
-          </div>
         </div>
+
       </main>
     );
   }
@@ -1078,41 +1710,30 @@ export default function DaiBieuPhongHopDetailPage() {
   ) {
     return (
       <main className="min-h-screen bg-slate-100">
-        <header className="border-b border-emerald-800 bg-emerald-700 text-white">
-          <div className="mx-auto flex max-w-7xl items-center px-5 py-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white">
-              <img
-                src="/logo-doan.png"
-                alt="Logo Đoàn"
-                className="h-8 w-8 object-contain"
-              />
-            </div>
 
-            <div className="ml-3">
-              <h1 className="text-lg font-bold">
-                PHÒNG HỌP KHÔNG GIẤY
-              </h1>
-            </div>
-          </div>
-        </header>
-
-        <div className="mx-auto max-w-5xl px-5 py-8">
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-            {error}
-          </div>
+        <div className="mx-auto max-w-6xl px-5 py-10">
 
           <Link
             href="/dai-bieu/phong-hop"
-            className="mt-4 inline-flex cursor-pointer items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="text-sm font-medium text-emerald-700 hover:text-emerald-800"
           >
-            ← Quay lại danh sách
+            ← Quay lại Phòng họp
           </Link>
+
+          <div className="mt-5 border-l-4 border-red-400 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {error}
+          </div>
+
         </div>
+
       </main>
     );
   }
 
-  if (!meeting) {
+  if (
+    !meeting ||
+    !participant
+  ) {
     return null;
   }
 
@@ -1127,236 +1748,252 @@ export default function DaiBieuPhongHopDetailPage() {
           HEADER
       ===================================================== */}
 
-      <header className="border-b border-emerald-800 bg-emerald-700 text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+      <header className="border-b border-emerald-600 bg-emerald-800 text-white">
 
-          <div className="flex items-center gap-3">
+        <div className="mx-auto max-w-6xl px-5 py-4">
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white">
-              <img
-                src="/logo-doan.png"
-                alt="Logo Đoàn"
-                className="h-8 w-8 object-contain"
-              />
+          <div className="flex items-center justify-between gap-5">
+
+            {/* =================================================
+                TÊN HỆ THỐNG
+            ================================================= */}
+
+            <div className="flex items-center gap-3">
+
+              <div>
+
+                <h1 className="text-xl font-bold tracking-wide">
+                  PHÒNG HỌP KHÔNG GIẤY
+                </h1>
+
+                <p className="mt-0.5 text-sm text-emerald-100">
+                  Hệ thống điều hành và quản lý công việc nội bộ Tỉnh đoàn
+                </p>
+
+              </div>
+
             </div>
 
-            <div>
-              <h1 className="text-lg font-bold">
-                PHÒNG HỌP KHÔNG GIẤY
-              </h1>
+            {/* =================================================
+                XIN CHÀO + ICON
+            ================================================= */}
 
-              <p className="text-xs text-emerald-100">
-                Hệ thống điều hành và quản lý cuộc họp
-              </p>
-            </div>
+            <Link
+              href="/dai-bieu/tai-khoan"
+              className="group hidden items-center gap-3 rounded-xl px-3 py-1.5 transition hover:bg-emerald-700 md:flex"
+            >
 
-          </div>
+              <div className="text-right">
 
-          <div className="hidden text-right sm:block">
-            <p className="text-xs text-emerald-100">
-              Đại biểu
-            </p>
+                <p className="text-[11px] text-emerald-100">
+                  Xin chào,
+                </p>
 
-            <p className="text-sm font-semibold">
-              Hồ sơ cuộc họp
-            </p>
+                <p className="text-sm font-semibold text-white">
+                  {currentUserName || "Đại biểu"}
+                </p>
+
+              </div>
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white transition group-hover:bg-emerald-500">
+
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  className="h-5 w-5"
+                >
+
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
+                  />
+
+                </svg>
+
+              </div>
+
+            </Link>
+
           </div>
 
         </div>
+
       </header>
-
-
       {/* =====================================================
           CONTENT
       ===================================================== */}
 
-      <div className="mx-auto max-w-5xl px-5 py-6">
-
-        {/* BACK */}
-
-        <Link
-          href="/dai-bieu/phong-hop"
-          className="mb-5 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50"
-        >
-          ← Danh sách cuộc họp
-        </Link>
-
-
-        {/* ===================================================
-            MEETING HEADER
-        =================================================== */}
-
-        <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-
-            <div className="min-w-0">
-
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-
-                <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                  Cuộc họp #{meetingOrder}
-                </span>
-
-                {meeting.status && (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                    {meeting.status}
-                  </span>
-                )}
-
-              </div>
-
-              <h2 className="text-xl font-semibold text-slate-900">
-                {meeting.title}
-              </h2>
-
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-500">
-
-                <span>
-                  📅{" "}
-                  {formatDate(
-                    meeting.meeting_date
-                  )}
-                </span>
-
-                <span>
-                  🕐{" "}
-                  {formatTime(
-                    meeting.start_time
-                  )}
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-
-
-        {/* ===================================================
-            ERROR / MESSAGE
-        =================================================== */}
-
-        {error && (
-          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {message && (
-          <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {message}
-          </div>
-        )}
-
+      <div className="mx-auto max-w-5xl px-5 py-2">
 
         {/* ===================================================
             TÀI LIỆU
         =================================================== */}
 
-        <section className="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className="border-b border-slate-300 py-4">
 
-          <div className="border-b border-slate-100 px-5 py-4">
-            <h3 className="text-base font-semibold text-slate-800">
-              Tài liệu cuộc họp
-            </h3>
+          <div className="flex items-start gap-3">
 
-            <p className="mt-1 text-xs text-slate-400">
-              Tài liệu do ban tổ chức phát hành.
-            </p>
-          </div>
-
-          {documents.length === 0 ? (
-
-            <div className="px-5 py-8 text-center text-sm text-slate-400">
-              Chưa có tài liệu được phát hành.
+            <div className="mt-0.5 text-xl text-blue-600">
+              📁
             </div>
 
-          ) : (
+            <div className="min-w-0 flex-1">
 
-            <div className="divide-y divide-slate-100">
+            <div className="flex items-center justify-between gap-4">
 
-              {documents.map(
-                (document) => (
-                  <div
-                    key={document.id}
-                    className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
+<h2 className="text-xl font-semibold text-emerald-900">
+  Tài liệu: {meeting.title}
+</h2>
 
-                    <div className="min-w-0">
+<Link
+  href="/dai-bieu/phong-hop"
+  className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+>
+  ← Quay về phòng họp
+</Link>
 
-                      <p className="text-sm font-medium text-slate-800">
-                        {document.title}
-                      </p>
+</div>
 
-                      {document.file_name && (
-                        <p className="mt-1 truncate text-xs text-slate-400">
-                          {document.file_name}
-                        </p>
-                      )}
+              {documents.length === 0 ? (
 
-                    </div>
+                <p className="mt-4 text-sm text-slate-400">
+                  Chưa có tài liệu được phát hành.
+                </p>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openDocument(
-                          document.file_path
-                        )
-                      }
-                      className="w-full cursor-pointer rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 sm:w-auto"
-                    >
-                      Xem tài liệu
-                    </button>
+              ) : (
 
-                  </div>
-                )
+                <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+
+                  {documents.map(
+                    (doc, index) => (
+
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between gap-4 py-1"
+                      >
+
+                        <div className="flex min-w-0 items-center gap-3">
+
+                          <span className="text-sm text-blue-500">
+                            📎
+                          </span>
+
+                          <div className="min-w-0">
+
+                            <p className="truncate text-sm font-medium text-slate-800">
+                              {index + 1}.{" "}
+                              {doc.name ||
+                                "Tài liệu cuộc họp"}
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                        {doc.file_path && (
+
+                          <div className="flex shrink-0 items-center gap-2">
+
+                            <button
+                              type="button"
+                              disabled={
+                                openingDocumentId ===
+                                doc.id
+                              }
+                              onClick={() =>
+                                openDocument(
+                                  doc
+                                )
+                              }
+                              className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {openingDocumentId ===
+                              doc.id
+                                ? "Đang mở..."
+                                : "👁 Xem"}
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={
+                                downloadingDocumentId ===
+                                doc.id
+                              }
+                              onClick={() =>
+                                downloadDocument(
+                                  doc
+                                )
+                              }
+                              className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {downloadingDocumentId ===
+                              doc.id
+                                ? "Đang tải..."
+                                : "↓ Tải về"}
+                            </button>
+
+                          </div>
+
+                        )}
+
+                      </div>
+
+                    )
+                  )}
+
+                </div>
+
               )}
 
             </div>
 
-          )}
+          </div>
 
         </section>
-
 
         {/* ===================================================
             XÁC NHẬN THAM DỰ
         =================================================== */}
 
-        {participant && (
-          <section className="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <section className="border-b border-slate-300 py-6">
 
-            <div className="border-b border-slate-100 px-5 py-4">
+          <div className="flex items-start gap-3">
 
-              <h3 className="text-base font-semibold text-slate-800">
-                Xác nhận tham dự
-              </h3>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Vui lòng xác nhận tình trạng tham dự cuộc họp.
-              </p>
-
+            <div className="mt-0.5 text-lg text-emerald-600">
+              ✓
             </div>
 
-            <div className="space-y-4 px-5 py-5">
+            <div className="min-w-0 flex-1">
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <h2 className="text-base font-semibold text-emerald-900">
+                Xác nhận tham dự
+              </h2>
+
+              <p className="mt-0.5 text-xs text-slate-500">
+                Vui lòng lựa chọn tình trạng tham dự cuộc họp.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
 
                 <button
                   type="button"
+                  disabled={
+                    savingAttendance
+                  }
                   onClick={() =>
                     setAttendanceChoice(
-                      "Tham dự"
+                      "Đã xác nhận tham dự"
                     )
                   }
-                  className={`cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                  className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
                     attendanceChoice ===
-                    "Tham dự"
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    "Đã xác nhận tham dự"
+                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                   }`}
                 >
                   ✓ Tham dự
@@ -1364,16 +2001,19 @@ export default function DaiBieuPhongHopDetailPage() {
 
                 <button
                   type="button"
+                  disabled={
+                    savingAttendance
+                  }
                   onClick={() =>
                     setAttendanceChoice(
                       "Không tham dự"
                     )
                   }
-                  className={`cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                  className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
                     attendanceChoice ===
                     "Không tham dự"
-                      ? "border-red-300 bg-red-50 text-red-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-slate-500 bg-slate-500 text-white"
+                      : "border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
                   Không tham dự
@@ -1383,339 +2023,680 @@ export default function DaiBieuPhongHopDetailPage() {
 
               {attendanceChoice ===
                 "Không tham dự" && (
-                <div>
 
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                <div className="mt-4 max-w-2xl">
+
+                  <label className="mb-1.5 block text-xs font-semibold text-slate-600">
                     Lý do không tham dự
                   </label>
 
                   <textarea
-                    value={absenceReason}
-                    onChange={(event) =>
+                    value={
+                      absenceReason
+                    }
+                    onChange={(
+                      event
+                    ) =>
                       setAbsenceReason(
                         event.target.value
                       )
                     }
                     rows={3}
-                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    placeholder="Nhập lý do..."
+                    placeholder="Nhập lý do không tham dự..."
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
                   />
 
                 </div>
+
               )}
 
-              <div className="flex justify-end">
+              {attendanceChoice && (
 
-                <button
-                  type="button"
-                  onClick={
-                    confirmAttendance
-                  }
-                  disabled={
-                    savingAttendance
-                  }
-                  className="w-full cursor-pointer rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  {savingAttendance
-                    ? "Đang lưu..."
-                    : "Xác nhận"}
-                </button>
+                <div className="mt-3">
 
-              </div>
+                  <button
+                    type="button"
+                    disabled={
+                      savingAttendance
+                    }
+                    onClick={
+                      confirmAttendance
+                    }
+                    className="rounded-md border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingAttendance
+                      ? "Đang cập nhật..."
+                      : "Xác nhận"}
+                  </button>
+
+                </div>
+
+              )}
+
+              {participant.attendance_status ===
+                "Đã xác nhận tham dự" && (
+
+                <div className="mt-4 border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+
+                  ✓ Đại biểu{" "}
+
+                  <strong>
+                    {participant.full_name ||
+                      "đại biểu"}
+                  </strong>{" "}
+
+                  xác nhận{" "}
+
+                  <strong>
+                    tham dự
+                  </strong>{" "}
+
+                  cuộc họp.
+
+                </div>
+
+              )}
+
+              {participant.attendance_status ===
+                "Không tham dự" && (
+
+                <div className="mt-4 border-l-4 border-slate-400 bg-slate-100 px-4 py-3 text-sm text-slate-700">
+
+                  Đại biểu{" "}
+
+                  <strong>
+                    {participant.full_name ||
+                      "đại biểu"}
+                  </strong>{" "}
+
+                  xác nhận{" "}
+
+                  <strong>
+                    không tham dự
+                  </strong>{" "}
+
+                  cuộc họp.
+
+                  {participant.response_note && (
+                    <>
+                      {" "}
+                      Lý do:{" "}
+                      <strong>
+                        {
+                          participant.response_note
+                        }
+                      </strong>
+                    </>
+                  )}
+
+                </div>
+
+              )}
 
             </div>
 
-          </section>
-        )}
+          </div>
 
+        </section>
 
         {/* ===================================================
             BIỂU QUYẾT
         =================================================== */}
 
-        {participant &&
-          participant.attendance_status ===
-            "Tham dự" &&
+        {!loadingVote &&
           activeVote && (
 
-          <section className="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <section className="border-b border-slate-300 py-6">
 
-            <div className="border-b border-slate-100 px-5 py-4">
+              <div className="flex items-start gap-3">
 
-              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+
+                  <div className="flex items-start justify-between gap-4">
+
+                    <div>
+
+                      <h2 className="text-base font-semibold text-emerald-900">
+
+                        <span className="text-amber-500">
+                          🗳️{" "}
+                        </span>
+
+                        Biểu quyết
+
+                      </h2>
+
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        Nội dung biểu quyết do Quản trị mở tại cuộc họp.
+                      </p>
+
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={
+                        refreshVote
+                      }
+                      disabled={loadingVote}
+                      className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      ↻ Cập nhật
+                    </button>
+
+                  </div>
+
+                  {/* =================================================
+                      NỘI DUNG BIỂU QUYẾT
+                  ================================================= */}
+
+                  <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-4">
+
+                    <div className="flex items-start justify-between gap-3">
+
+                      <div className="min-w-0 flex-1">
+
+                        <p className="text-sm font-semibold text-slate-900">
+                          {activeVote.title}
+                        </p>
+
+                        {activeVote.description && (
+
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                            {
+                              activeVote.description
+                            }
+                          </p>
+
+                        )}
+
+                      </div>
+
+                      {/* =================================================
+                          TRẠNG THÁI
+                      ================================================= */}
+
+                      {activeVote.status ===
+                        "Đang biểu quyết" ? (
+
+                        <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                          Đang biểu quyết
+                        </span>
+
+                      ) : activeVote.status ===
+                        "Đã kết thúc" ? (
+
+                        <span className="shrink-0 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                          Đã kết thúc
+                        </span>
+
+                      ) : (
+
+                        <span className="shrink-0 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                          {activeVote.status}
+                        </span>
+
+                      )}
+
+                    </div>
+
+                    {/* =================================================
+                        CHƯA XÁC NHẬN THAM DỰ
+                    ================================================= */}
+
+                    {participant.attendance_status !==
+                      "Đã xác nhận tham dự" && (
+
+                      <div className="mt-4 border-l-4 border-slate-400 bg-slate-100 px-3 py-2.5 text-xs text-slate-600">
+
+                        Anh/chị chưa xác nhận tham dự nên không thể tham gia biểu quyết.
+
+                      </div>
+
+                    )}
+
+                    {/* =================================================
+                        ĐANG BIỂU QUYẾT
+                    ================================================= */}
+
+                    {activeVote.status ===
+                      "Đang biểu quyết" &&
+                      participant.attendance_status ===
+                        "Đã xác nhận tham dự" && (
+
+                      <div className="mt-5">
+
+                        <p className="mb-3 text-xs font-semibold text-slate-600">
+                          Lựa chọn của anh/chị:
+                        </p>
+
+                        {/* =================================================
+                            ĐÃ CHỌN
+                        ================================================= */}
+
+                        {voteChoice ? (
+
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-4">
+
+                            <p className="text-sm font-semibold text-emerald-800">
+
+                              ✓ Bạn đã{" "}
+
+                              {voteChoice ===
+                              "Đồng ý"
+                                ? "đồng ý"
+                                : "không đồng ý"}{" "}
+
+                              với nội dung biểu quyết.
+
+                            </p>
+
+                            <p className="mt-1 text-xs text-emerald-700">
+
+                              Lựa chọn hiện tại:{" "}
+
+                              <strong>
+                                {voteChoice}
+                              </strong>
+
+                            </p>
+
+                            <p className="mt-1 text-xs text-emerald-600">
+                              Bạn có thể thay đổi lựa chọn khi cuộc biểu quyết chưa kết thúc.
+                            </p>
+
+                            <div className="mt-3 flex flex-wrap gap-3">
+
+                              {voteChoice ===
+                              "Đồng ý" ? (
+
+                                <button
+                                  type="button"
+                                  disabled={
+                                    savingVote
+                                  }
+                                  onClick={() =>
+                                    castVote(
+                                      "Không đồng ý"
+                                    )
+                                  }
+                                  className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {savingVote
+                                    ? "Đang cập nhật..."
+                                    : "Đổi sang Không đồng ý"}
+                                </button>
+
+                              ) : (
+
+                                <button
+                                  type="button"
+                                  disabled={
+                                    savingVote
+                                  }
+                                  onClick={() =>
+                                    castVote(
+                                      "Đồng ý"
+                                    )
+                                  }
+                                  className="rounded-md border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {savingVote
+                                    ? "Đang cập nhật..."
+                                    : "Đổi sang Đồng ý"}
+                                </button>
+
+                              )}
+
+                            </div>
+
+                          </div>
+
+                        ) : (
+
+                          /* =================================================
+                             CHƯA BIỂU QUYẾT
+                          ================================================= */
+
+                          <div>
+
+                            <p className="mb-3 text-sm text-slate-700">
+                              Anh/chị có đồng ý với nội dung biểu quyết này không?
+                            </p>
+
+                            <div className="flex flex-wrap gap-3">
+
+                              <button
+                                type="button"
+                                disabled={
+                                  savingVote
+                                }
+                                onClick={() =>
+                                  castVote(
+                                    "Đồng ý"
+                                  )
+                                }
+                                className="rounded-md border border-emerald-600 bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {savingVote
+                                  ? "Đang ghi nhận..."
+                                  : "✓ Đồng ý"}
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={
+                                  savingVote
+                                }
+                                onClick={() =>
+                                  castVote(
+                                    "Không đồng ý"
+                                  )
+                                }
+                                className="rounded-md border border-red-500 bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {savingVote
+                                  ? "Đang ghi nhận..."
+                                  : "Không đồng ý"}
+                              </button>
+
+                            </div>
+
+                          </div>
+
+                        )}
+
+                      </div>
+
+                    )}
+
+                    {/* =================================================
+                        ĐÃ KẾT THÚC
+                    ================================================= */}
+
+                    {activeVote.status ===
+                      "Đã kết thúc" && (
+
+                      <div className="mt-5 border-l-4 border-slate-400 bg-slate-100 px-4 py-3">
+
+                        <p className="text-sm font-medium text-slate-700">
+                          Biểu quyết đã kết thúc.
+                        </p>
+
+                        {myVote &&
+                        myVote.choice ? (
+
+                          <>
+
+                            <p className="mt-2 text-sm text-slate-600">
+
+                              Bạn đã biểu quyết:{" "}
+
+                              <strong className="text-slate-800">
+                                {myVote.choice}
+                              </strong>
+
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              Lựa chọn của bạn đã được khóa và không thể thay đổi.
+                            </p>
+
+                          </>
+
+                        ) : (
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            Bạn chưa thực hiện biểu quyết trước khi cuộc biểu quyết kết thúc.
+                          </p>
+
+                        )}
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </section>
+
+          )}
+
+        {/* ===================================================
+            GÓP Ý / PHÁT BIỂU
+        =================================================== */}
+
+        <section className="py-6">
+
+          <div className="flex items-start gap-3">
+
+            <div className="mt-0.5 text-lg text-indigo-600">
+              💬
+            </div>
+
+            <div className="min-w-0 flex-1">
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 
                 <div>
 
-                  <h3 className="text-base font-semibold text-slate-800">
-                    {activeVote.title}
-                  </h3>
+                  <h2 className="text-base font-semibold text-emerald-900">
+                    Góp ý / Phát biểu
+                  </h2>
 
-                  <p className="mt-1 text-xs text-slate-400">
-                    Phiếu biểu quyết đang mở.
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Gửi một lần cho toàn bộ cuộc họp bằng nội dung hoặc file góp ý.
                   </p>
 
                 </div>
 
-                <button
-                  type="button"
-                  onClick={
-                    refreshVote
-                  }
-                  className="cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  ↻ Cập nhật
-                </button>
+                {!showSpeakingForm && (
 
-              </div>
-
-              {activeVote.description && (
-                <p className="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  {activeVote.description}
-                </p>
-              )}
-
-            </div>
-
-            <div className="space-y-3 px-5 py-5">
-
-              {voteItems.map(
-                (item) => (
                   <button
-                    key={item.id}
                     type="button"
                     onClick={() =>
-                      setSelectedVoteItem(
-                        item.id
+                      setShowSpeakingForm(
+                        true
                       )
                     }
-                    className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
-                      selectedVoteItem ===
-                      item.id
-                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
+                    className="shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
                   >
-
-                    <span
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                        selectedVoteItem ===
-                        item.id
-                          ? "border-emerald-600"
-                          : "border-slate-300"
-                      }`}
-                    >
-                      {selectedVoteItem ===
-                        item.id && (
-                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
-                      )}
-                    </span>
-
-                    <span>
-                      {item.label}
-                    </span>
-
-                  </button>
-                )
-              )}
-
-              {voteItems.length === 0 && (
-                <p className="text-sm text-slate-400">
-                  Chưa có phương án biểu quyết.
-                </p>
-              )}
-
-              {voteItems.length > 0 && (
-                <div className="flex justify-end pt-2">
-
-                  <button
-                    type="button"
-                    onClick={
-                      castVote
-                    }
-                    disabled={
-                      savingVote ||
-                      !selectedVoteItem
-                    }
-                    className="w-full cursor-pointer rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                  >
-                    {savingVote
-                      ? "Đang gửi..."
-                      : voteParticipant
-                        ? "Cập nhật biểu quyết"
-                        : "Gửi biểu quyết"}
+                    {registrations.length > 0
+                      ? "✎ Sửa góp ý"
+                      : "+ Gửi góp ý"}
                   </button>
 
-                </div>
-              )}
-
-            </div>
-
-          </section>
-        )}
-
-
-        {/* ===================================================
-            PHÁT BIỂU / Ý KIẾN
-        =================================================== */}
-
-        {participant && (
-          <section className="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-            <div className="border-b border-slate-100 px-5 py-4">
-
-              <h3 className="text-base font-semibold text-slate-800">
-                Đăng ký phát biểu / gửi ý kiến
-              </h3>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Đại biểu có thể gửi nội dung phát biểu hoặc tài liệu kèm theo.
-              </p>
-
-            </div>
-
-            <div className="space-y-4 px-5 py-5">
-
-              <div>
-
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Nội dung
-                </label>
-
-                <textarea
-                  value={speakingContent}
-                  onChange={(event) =>
-                    setSpeakingContent(
-                      event.target.value
-                    )
-                  }
-                  rows={5}
-                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  placeholder="Nhập nội dung phát biểu hoặc ý kiến..."
-                />
-
-              </div>
-
-              <div>
-
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                  Tệp đính kèm
-                </label>
-
-                <input
-                  type="file"
-                  onChange={(event) =>
-                    setSpeakingFile(
-                      event.target.files?.[0] ||
-                      null
-                    )
-                  }
-                  className="block w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
-                />
-
-                {speakingFile && (
-                  <p className="mt-2 text-xs text-slate-400">
-                    Đã chọn:{" "}
-                    {speakingFile.name}
-                  </p>
                 )}
 
               </div>
 
-              <div className="flex justify-end">
+              {showSpeakingForm && (
 
-                <button
-                  type="button"
-                  onClick={
-                    registerSpeaking
-                  }
-                  disabled={
-                    savingSpeaking
-                  }
-                  className="w-full cursor-pointer rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  {savingSpeaking
-                    ? "Đang gửi..."
-                    : "Gửi ý kiến"}
-                </button>
+                <div className="mt-4 max-w-3xl">
 
-              </div>
+                  <textarea
+                    value={
+                      speakingContent
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setSpeakingContent(
+                        event.target.value
+                      )
+                    }
+                    rows={5}
+                    placeholder="Nhập nội dung góp ý hoặc vấn đề dự kiến phát biểu..."
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-3 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                  />
 
-            </div>
+                  <div className="mt-3">
 
+                    <label className="block text-xs font-semibold text-slate-600">
+                      File góp ý
+                    </label>
 
-            {/* LỊCH SỬ Ý KIẾN */}
+                    <input
+                      type="file"
+                      onChange={(
+                        event
+                      ) =>
+                        setSpeakingFile(
+                          event.target.files?.[0] ||
+                            null
+                        )
+                      }
+                      className="mt-1.5 block w-full text-xs text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-emerald-700 hover:file:bg-emerald-100"
+                    />
 
-            {opinions.length > 0 && (
-              <div className="border-t border-slate-100 px-5 py-5">
+                    {speakingFile && (
 
-                <h4 className="mb-3 text-sm font-semibold text-slate-700">
-                  Lịch sử ý kiến
-                </h4>
+                      <p className="mt-1.5 text-xs text-slate-400">
+                        Đã chọn:{" "}
+                        {speakingFile.name}
+                      </p>
 
-                <div className="space-y-3">
+                    )}
 
-                  {opinions.map(
-                    (opinion) => (
-                      <div
-                        key={opinion.id}
-                        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                      >
+                  </div>
 
-                        <p className="text-xs text-slate-400">
-                          {new Date(
-                            opinion.created_at
-                          ).toLocaleString(
-                            "vi-VN"
-                          )}
-                        </p>
+                  <div className="mt-3 flex justify-end gap-2">
 
-                        {opinion.content && (
-                          <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-                            {opinion.content}
-                          </p>
-                        )}
+                    <button
+                      type="button"
+                      onClick={() => {
 
-                        {opinion.file_path && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDocument(
-                                opinion.file_path!
-                              )
-                            }
-                            className="mt-3 cursor-pointer text-xs font-semibold text-emerald-700 hover:text-emerald-800"
-                          >
-                            Xem tệp đính kèm →
-                          </button>
-                        )}
+                        setShowSpeakingForm(
+                          false
+                        );
 
-                      </div>
-                    )
-                  )}
+                        setSpeakingContent(
+                          ""
+                        );
+
+                        setSpeakingFile(
+                          null
+                        );
+
+                      }}
+                      className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Hủy
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        savingSpeaking
+                      }
+                      onClick={
+                        registerSpeaking
+                      }
+                      className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                    >
+                      {savingSpeaking
+                        ? "Đang gửi..."
+                        : registrations.length > 0
+                          ? "Cập nhật góp ý"
+                          : "Gửi góp ý"}
+                    </button>
+
+                  </div>
 
                 </div>
 
-              </div>
-            )}
+              )}
 
-          </section>
+              {registrations.length >
+                0 && (
+
+                <div className="mt-5 max-w-3xl border-t border-slate-200 pt-4">
+
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Góp ý của tôi
+                  </p>
+
+                  {registrations
+                    .slice(0, 1)
+                    .map(
+                      (
+                        registration
+                      ) => (
+
+                        <div
+                          key={
+                            registration.id
+                          }
+                          className="border-l-2 border-emerald-400 pl-3"
+                        >
+
+                          {registration.content && (
+
+                            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                              {
+                                registration.content
+                              }
+                            </p>
+
+                          )}
+
+                          {registration.file_name && (
+
+                            <p className="mt-2 text-xs text-slate-500">
+
+                              📎 File:{" "}
+
+                              <span className="font-medium text-slate-700">
+                                {
+                                  registration.file_name
+                                }
+                              </span>
+
+                            </p>
+
+                          )}
+
+                          <p className="mt-1 text-xs text-slate-400">
+
+                            Gửi lúc{" "}
+
+                            {new Date(
+                              registration.registered_at
+                            ).toLocaleString(
+                              "vi-VN"
+                            )}
+
+                          </p>
+
+                        </div>
+
+                      )
+                    )}
+
+                </div>
+
+              )}
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =====================================================
+            THÔNG BÁO LỖI
+        ===================================================== */}
+
+        {error && (
+
+          <div className="mb-5 border-l-4 border-red-400 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+
         )}
-
-
-        {/* ===================================================
-            FOOTER BACK
-        =================================================== */}
-
-        <div className="pb-8 pt-2">
-
-          <Link
-            href="/dai-bieu/phong-hop"
-            className="inline-flex cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm hover:bg-slate-50"
-          >
-            ← Quay lại danh sách cuộc họp
-          </Link>
-
-        </div>
 
       </div>
 
