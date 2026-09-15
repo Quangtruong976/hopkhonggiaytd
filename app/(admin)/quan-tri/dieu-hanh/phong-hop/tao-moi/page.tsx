@@ -35,6 +35,7 @@ export default function TaoCuocHopPage() {
 
   const [saved, setSaved] = useState(false);
   const [meetingId, setMeetingId] = useState<number | null>(null);
+  const [meetingNumber, setMeetingNumber] = useState<number | null>(null);
   const [participantCount, setParticipantCount] = useState(0);
 
   const [loadingGroups, setLoadingGroups] = useState(true);
@@ -460,13 +461,46 @@ export default function TaoCuocHopPage() {
       // HOÀN TẤT
       // =====================================================
 
-      setMeetingId(newMeetingId);
+     // =====================================================
+// 8. XÁC ĐỊNH SỐ THỨ TỰ HIỂN THỊ
+// =====================================================
 
-      setParticipantCount(
-        participantRows.length
-      );
+const {
+  count: meetingCount,
+  error: meetingCountError,
+} = await supabase
+  .from("meetings")
+  .select("id", {
+    count: "exact",
+    head: true,
+  });
 
-      setSaved(true);
+if (meetingCountError) {
+  console.error(
+    "LỖI ĐẾM SỐ CUỘC HỌP:",
+    meetingCountError
+  );
+
+  throw new Error(
+    `Không thể xác định số thứ tự cuộc họp: ${meetingCountError.message}`
+  );
+}
+
+// =====================================================
+// HOÀN TẤT
+// =====================================================
+
+setMeetingId(newMeetingId);
+
+setMeetingNumber(
+  meetingCount || 1
+);
+
+setParticipantCount(
+  participantRows.length
+);
+
+setSaved(true);
     } catch (err) {
       console.error(
         "LỖI TẠO CUỘC HỌP:",
@@ -605,7 +639,7 @@ export default function TaoCuocHopPage() {
               </p>
 
               <p className="mt-1 text-lg font-bold text-slate-700">
-                #{meetingId}
+              #{meetingNumber}
               </p>
 
               <p className="mt-2 text-sm text-emerald-700">
