@@ -413,6 +413,7 @@ export default function TaoCuocHopPage() {
       const participantRows = profiles.map(
         (profile) => ({
           meeting_id: newMeetingId,
+          profile_id: profile.id,
           full_name: profile.full_name,
           position: profile.position,
           organization: profile.organization,
