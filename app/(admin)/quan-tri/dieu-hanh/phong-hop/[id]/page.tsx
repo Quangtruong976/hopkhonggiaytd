@@ -97,7 +97,8 @@ export default function MeetingDetailPage() {
   const searchParams = useSearchParams();
   const [meeting, setMeeting] =
     useState<Meeting | null>(null);
-
+    const [meetingOrder, setMeetingOrder] =
+    useState<number | null>(null);
   const [loading, setLoading] =
     useState(true);
 
@@ -215,6 +216,23 @@ export default function MeetingDetailPage() {
         setMeeting(null);
       } else {
         setMeeting(data);
+        const { data: allMeetings, error: orderError } =
+  await supabase
+    .from("meetings")
+    .select("id, created_at")
+    .order("created_at", {
+      ascending: true,
+    });
+
+if (!orderError && allMeetings) {
+  const index = allMeetings.findIndex(
+    (item) => item.id === meetingId
+  );
+
+  setMeetingOrder(
+    index >= 0 ? index + 1 : null
+  );
+}
       }
 
       setLoading(false);
@@ -371,7 +389,8 @@ export default function MeetingDetailPage() {
             <div className="min-w-0">
 
               <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                Hồ sơ cuộc họp #{meeting.id}
+              Hồ sơ cuộc họp #
+              {meetingOrder ?? "..."}
               </div>
 
               <h1 className="text-lg font-bold text-red-800">
