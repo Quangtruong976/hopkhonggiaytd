@@ -1032,7 +1032,7 @@ function MeetingRow({
           {/* MỞ HỒ SƠ */}
 
           <Link
-            href={`/quan-tri/dieu-hanh/phong-hop/${meeting.id}`}
+          href={`/quan-tri/dieu-hanh/phong-hop/${index}`}
             className="flex h-8 cursor-pointer items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-normal text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
           >
             Mở hồ sơ →
