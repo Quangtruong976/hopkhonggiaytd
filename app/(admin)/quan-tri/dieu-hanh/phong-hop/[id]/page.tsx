@@ -26,6 +26,7 @@ type Meeting = {
   secretary: string | null;
   description: string | null;
   status: string | null;
+  created_at: string;
 };
 
 type TabKey =
@@ -83,22 +84,33 @@ const tabs: {
     icon: "📑",
     label: "Biên bản",
   },
-  
 ];
 
 export default function MeetingDetailPage() {
   const params = useParams();
 
+  /*
+   * URL hiện tại dùng SỐ THỨ TỰ:
+   *
+   * /quan-tri/dieu-hanh/phong-hop/1
+   * /quan-tri/dieu-hanh/phong-hop/2
+   *
+   * Không còn xem params.id là meetings.id.
+   */
   const id = Array.isArray(params.id)
     ? params.id[0]
     : params.id;
 
-  const meetingId = Number(id);
+  const meetingOrderFromUrl = Number(id);
+
   const searchParams = useSearchParams();
+
   const [meeting, setMeeting] =
     useState<Meeting | null>(null);
-    const [meetingOrder, setMeetingOrder] =
+
+  const [meetingOrder, setMeetingOrder] =
     useState<number | null>(null);
+
   const [loading, setLoading] =
     useState(true);
 
@@ -108,12 +120,12 @@ export default function MeetingDetailPage() {
   const [currentUserName, setCurrentUserName] =
     useState("");
 
-    const [activeTab, setActiveTab] =
+  const [activeTab, setActiveTab] =
     useState<TabKey>("agenda");
-  
+
   useEffect(() => {
     const tab = searchParams.get("tab");
-  
+
     if (
       tab === "agenda" ||
       tab === "documents" ||
@@ -168,14 +180,19 @@ export default function MeetingDetailPage() {
   }, []);
 
   // =====================================================
-  // TẢI CUỘC HỌP
+  // TẢI CUỘC HỌP THEO SỐ THỨ TỰ
   // =====================================================
 
   useEffect(() => {
     async function loadMeeting() {
-      if (!Number.isInteger(meetingId)) {
+      if (
+        !Number.isInteger(
+          meetingOrderFromUrl
+        ) ||
+        meetingOrderFromUrl < 1
+      ) {
         setError(
-          "Mã cuộc họp không hợp lệ."
+          "Số thứ tự cuộc họp không hợp lệ."
         );
 
         setLoading(false);
@@ -185,61 +202,88 @@ export default function MeetingDetailPage() {
       setLoading(true);
       setError("");
 
-      const { data, error } =
-        await supabase
-          .from("meetings")
-          .select(
-            `
-            id,
-            title,
-            meeting_date,
-            start_time,
-            end_time,
-            location,
-            chairperson,
-            secretary,
-            description,
-            status
-          `
-          )
-          .eq("id", meetingId)
-          .single();
+      // =================================================
+      // 1. LẤY TOÀN BỘ CUỘC HỌP THEO THỨ TỰ TẠO
+      // =================================================
 
-      if (error || !data) {
-        console.error(error);
+      const {
+        data: allMeetings,
+        error: allMeetingsError,
+      } = await supabase
+        .from("meetings")
+        .select(`
+          id,
+          title,
+          meeting_date,
+          start_time,
+          end_time,
+          location,
+          chairperson,
+          secretary,
+          description,
+          status,
+          created_at
+        `)
+        .order("created_at", {
+          ascending: true,
+        });
+
+      if (
+        allMeetingsError ||
+        !allMeetings
+      ) {
+        console.error(
+          allMeetingsError
+        );
 
         setError(
-          error?.message ||
-            "Không tìm thấy cuộc họp."
+          allMeetingsError?.message ||
+            "Không thể tải danh sách cuộc họp."
         );
 
         setMeeting(null);
-      } else {
-        setMeeting(data);
-        const { data: allMeetings, error: orderError } =
-  await supabase
-    .from("meetings")
-    .select("id, created_at")
-    .order("created_at", {
-      ascending: true,
-    });
+        setLoading(false);
 
-if (!orderError && allMeetings) {
-  const index = allMeetings.findIndex(
-    (item) => item.id === meetingId
-  );
-
-  setMeetingOrder(
-    index >= 0 ? index + 1 : null
-  );
-}
+        return;
       }
+
+      // =================================================
+      // 2. XÁC ĐỊNH CUỘC HỌP THEO SỐ THỨ TỰ
+      // =================================================
+
+      const selectedMeeting =
+        allMeetings[
+          meetingOrderFromUrl - 1
+        ];
+
+      if (!selectedMeeting) {
+        setError(
+          `Không tìm thấy cuộc họp số ${meetingOrderFromUrl}.`
+        );
+
+        setMeeting(null);
+        setLoading(false);
+
+        return;
+      }
+
+      // =================================================
+      // 3. LƯU CUỘC HỌP
+      // =================================================
+
+      setMeeting(
+        selectedMeeting as Meeting
+      );
+
+      setMeetingOrder(
+        meetingOrderFromUrl
+      );
 
       setLoading(false);
     }
 
     loadMeeting();
-  }, [meetingId]);
+  }, [meetingOrderFromUrl]);
 
   // =====================================================
   // ĐANG TẢI
@@ -248,17 +292,11 @@ if (!orderError && allMeetings) {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-100">
-
         <div className="mx-auto max-w-7xl px-5 py-10">
-
           <div className="rounded-xl border border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500">
-
             Đang tải hồ sơ cuộc họp...
-
           </div>
-
         </div>
-
       </main>
     );
   }
@@ -270,7 +308,6 @@ if (!orderError && allMeetings) {
   if (error || !meeting) {
     return (
       <main className="min-h-screen bg-slate-100">
-
         <div className="mx-auto max-w-3xl px-5 py-10">
 
           <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
@@ -286,7 +323,6 @@ if (!orderError && allMeetings) {
           </Link>
 
         </div>
-
       </main>
     );
   }
@@ -317,64 +353,66 @@ if (!orderError && allMeetings) {
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
-          {/* TÊN HỆ THỐNG */}
-
           <div className="flex items-center gap-3">
 
             <div>
 
-            <h1 className="text-xl font-bold tracking-wide">
-              PHÒNG HỌP KHÔNG GIẤY
-            </h1>
+              <h1 className="text-xl font-bold tracking-wide">
+                PHÒNG HỌP KHÔNG GIẤY
+              </h1>
 
-            <p className="mt-0.5 text-sm text-emerald-100">
-              Trang quản lý, điều hành dành cho Quản trị
-            </p>
+              <p className="mt-0.5 text-sm text-emerald-100">
+                Trang quản lý, điều hành dành cho Quản trị
+              </p>
 
             </div>
 
           </div>
 
-
           {/* NGƯỜI DÙNG */}
 
           <Link
-  href="/quan-tri/tai-khoan"
-  className="hidden cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-emerald-700 md:flex"
->
-  <div className="text-right">
-    <p className="text-[11px] text-emerald-100">
-      Xin chào,
-    </p>
+            href="/quan-tri/tai-khoan"
+            className="hidden cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-emerald-700 md:flex"
+          >
 
-    <p className="text-sm font-semibold">
-      {currentUserName || "Đang tải..."}
-    </p>
-  </div>
+            <div className="text-right">
 
-  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white">
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      className="h-5 w-5"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
-      />
-    </svg>
-  </div>
-</Link>
+              <p className="text-[11px] text-emerald-100">
+                Xin chào,
+              </p>
 
+              <p className="text-sm font-semibold">
+                {currentUserName ||
+                  "Đang tải..."}
+              </p>
+
+            </div>
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white">
+
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-5 w-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
+                />
+              </svg>
+
+            </div>
+
+          </Link>
 
         </div>
 
       </header>
-
 
       {/* =====================================================
           THÔNG TIN HỒ SƠ
@@ -389,8 +427,8 @@ if (!orderError && allMeetings) {
             <div className="min-w-0">
 
               <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-              Hồ sơ cuộc họp #
-              {meetingOrder ?? "..."}
+                Hồ sơ cuộc họp #
+                {meetingOrder ?? "..."}
               </div>
 
               <h1 className="text-lg font-bold text-red-800">
@@ -402,7 +440,6 @@ if (!orderError && allMeetings) {
                 {meeting.title}
 
               </h1>
-
 
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
 
@@ -437,7 +474,6 @@ if (!orderError && allMeetings) {
 
             </div>
 
-
             {/* BÊN PHẢI */}
 
             <div className="flex shrink-0 flex-col items-end gap-2">
@@ -449,9 +485,6 @@ if (!orderError && allMeetings) {
                 ← Quay lại phòng họp
               </Link>
 
-
-              {/* TRẠNG THÁI */}
-
               <div
                 className={`rounded-lg px-3 py-2 text-xs font-semibold ${
                   isFinished
@@ -461,13 +494,10 @@ if (!orderError && allMeetings) {
                       : "bg-amber-50 text-amber-700"
                 }`}
               >
-
                 {isFinished
                   ? "✓ Đã hoàn thành"
                   : status}
-
               </div>
-             
 
             </div>
 
@@ -477,7 +507,6 @@ if (!orderError && allMeetings) {
 
       </section>
 
-
       {/* =====================================================
           NỘI DUNG
       ===================================================== */}
@@ -486,9 +515,7 @@ if (!orderError && allMeetings) {
 
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 
-          {/* =================================================
-              THANH TAB
-          ================================================= */}
+          {/* THANH TAB */}
 
           <div className="border-b border-slate-200 bg-slate-50 px-3 py-2">
 
@@ -500,7 +527,6 @@ if (!orderError && allMeetings) {
                   activeTab === tab.key;
 
                 return (
-
                   <button
                     key={tab.key}
                     type="button"
@@ -525,7 +551,6 @@ if (!orderError && allMeetings) {
                     </span>
 
                   </button>
-
                 );
 
               })}
@@ -534,10 +559,7 @@ if (!orderError && allMeetings) {
 
           </div>
 
-
-          {/* =================================================
-              KHU VỰC NỘI DUNG
-          ================================================= */}
+          {/* KHU VỰC NỘI DUNG */}
 
           <div
             className={
@@ -547,12 +569,9 @@ if (!orderError && allMeetings) {
             }
           >
 
-            {/* =================================================
-                THÔNG BÁO HỒ SƠ ĐÃ KẾT THÚC
-            ================================================= */}
+            {/* THÔNG BÁO HỒ SƠ ĐÃ KẾT THÚC */}
 
             {isFinished && (
-
               <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
 
                 <div className="flex items-start gap-3">
@@ -576,13 +595,9 @@ if (!orderError && allMeetings) {
                 </div>
 
               </div>
-
             )}
 
-
-            {/* =================================================
-                TAB CHƯƠNG TRÌNH
-            ================================================= */}
+            {/* TAB CHƯƠNG TRÌNH */}
 
             {activeTab === "agenda" && (
               <div
@@ -598,10 +613,7 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB TÀI LIỆU
-            ================================================= */}
+            {/* TAB TÀI LIỆU */}
 
             {activeTab === "documents" && (
               <div
@@ -617,10 +629,7 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB THÀNH PHẦN
-            ================================================= */}
+            {/* TAB THÀNH PHẦN */}
 
             {activeTab === "participants" && (
               <div
@@ -636,10 +645,7 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB Ý KIẾN
-            ================================================= */}
+            {/* TAB Ý KIẾN */}
 
             {activeTab === "opinions" && (
               <div
@@ -655,10 +661,7 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB BIỂU QUYẾT
-            ================================================= */}
+            {/* TAB BIỂU QUYẾT */}
 
             {activeTab === "voting" && (
               <div
@@ -674,10 +677,7 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB KẾT LUẬN
-            ================================================= */}
+            {/* TAB KẾT LUẬN */}
 
             {activeTab === "conclusion" && (
               <div
@@ -693,10 +693,7 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB NHIỆM VỤ
-            ================================================= */}
+            {/* TAB NHIỆM VỤ */}
 
             {activeTab === "tasks" && (
               <div
@@ -712,10 +709,7 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB BIÊN BẢN
-            ================================================= */}
+            {/* TAB BIÊN BẢN */}
 
             {activeTab === "minutes" && (
               <div
@@ -731,12 +725,6 @@ if (!orderError && allMeetings) {
               </div>
             )}
 
-
-            {/* =================================================
-                TAB GHI ÂM
-            ================================================= */}
-
-           
           </div>
 
         </section>
@@ -746,11 +734,6 @@ if (!orderError && allMeetings) {
     </main>
   );
 }
-
-
-/* =========================================================
-   GHI ÂM
-========================================================= */
 
 
 /* =========================================================
@@ -798,4 +781,3 @@ function formatTime(
     5
   )}`;
 }
-
