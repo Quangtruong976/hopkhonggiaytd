@@ -462,39 +462,86 @@ export default function TaoCuocHopPage() {
       // =====================================================
 
      // =====================================================
+// =====================================================
 // 8. XÁC ĐỊNH SỐ THỨ TỰ HIỂN THỊ
 // =====================================================
 
 const {
-  count: meetingCount,
-  error: meetingCountError,
+  data: allMeetings,
+  error: allMeetingsError,
 } = await supabase
   .from("meetings")
-  .select("id", {
-    count: "exact",
-    head: true,
-  });
+  .select(`
+    id,
+    status,
+    meeting_date,
+    start_time
+  `);
 
-if (meetingCountError) {
+if (allMeetingsError) {
   console.error(
-    "LỖI ĐẾM SỐ CUỘC HỌP:",
-    meetingCountError
+    "LỖI LẤY DANH SÁCH CUỘC HỌP:",
+    allMeetingsError
   );
 
   throw new Error(
-    `Không thể xác định số thứ tự cuộc họp: ${meetingCountError.message}`
+    `Không thể xác định số thứ tự cuộc họp: ${allMeetingsError.message}`
   );
 }
 
-// =====================================================
-// HOÀN TẤT
-// =====================================================
+const sortedMeetings = [...(allMeetings || [])].sort(
+  (a, b) => {
+    const aFinished =
+      a.status === "Đã kết thúc";
+
+    const bFinished =
+      b.status === "Đã kết thúc";
+
+    if (aFinished !== bFinished) {
+      return aFinished ? 1 : -1;
+    }
+
+    const aDate =
+      a.meeting_date || "";
+
+    const bDate =
+      b.meeting_date || "";
+
+    if (aDate !== bDate) {
+      return bDate.localeCompare(aDate);
+    }
+
+    const aTime =
+      a.start_time || "";
+
+    const bTime =
+      b.start_time || "";
+
+    if (aTime !== bTime) {
+      return bTime.localeCompare(aTime);
+    }
+
+    return b.id - a.id;
+  }
+);
+
+const meetingIndex =
+  sortedMeetings.findIndex(
+    (item) => item.id === newMeetingId
+  );
+
+if (meetingIndex === -1) {
+  throw new Error(
+    "Không xác định được số thứ tự cuộc họp vừa tạo."
+  );
+}
+
+const newMeetingNumber =
+  meetingIndex + 1;
 
 setMeetingId(newMeetingId);
 
-setMeetingNumber(
-  meetingCount || 1
-);
+setMeetingNumber(newMeetingNumber);
 
 setParticipantCount(
   participantRows.length
@@ -658,7 +705,7 @@ setSaved(true);
                 type="button"
                 onClick={() =>
                   router.push(
-                    `/quan-tri/dieu-hanh/phong-hop/${meetingId}`
+                    `/quan-tri/dieu-hanh/phong-hop/${meetingNumber}`
                   )
                 }
                 className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800"
