@@ -1328,37 +1328,15 @@ export default function DaiBieuLichCongTacPage() {
 
             <div className="flex shrink-0 items-center gap-2">
 
-  {selectedSchedule.sourceType === "meeting" &&
-    selectedSchedule.meetingId !== null && (
-      <Link
-        href={`/dai-bieu/phong-hop/${selectedSchedule.meetingId}`}
-        className="rounded-lg border border-emerald-300 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
-      >
-        Mở phòng họp →
-      </Link>
-    )}
+  
 
-<div className="flex shrink-0 items-center gap-2">
-
-{selectedSchedule.sourceType === "meeting" &&
-  selectedSchedule.meetingId !== null && (
-    <Link
-      href={`/dai-bieu/phong-hop/${selectedSchedule.meetingId}`}
-      className="rounded-lg border border-emerald-300 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-00"
-    >
-      Mở phòng họp →
-    </Link>
-  )}
-
-<button
-  type="button"
-  onClick={() => setSelectedScheduleId(null)}
-  className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
->
-  Đóng
-</button>
-
-</div>
+  <button
+    type="button"
+    onClick={() => setSelectedScheduleId(null)}
+    className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+  >
+    Đóng
+  </button>
 
 </div>
 
