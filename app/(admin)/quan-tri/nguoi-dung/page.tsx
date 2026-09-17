@@ -497,30 +497,61 @@ export default function NguoiDungPage() {
     }
 
     // =========================
-    // SỬA
-    // =========================
+// SỬA
+// =========================
 
-    if (!editingUser) {
-      return;
-    }
+if (!editingUser) {
+  return;
+}
 
-    setSaving(true);
+setSaving(true);
 
-    try {
-      const {
-        error: updateError,
-      } = await supabase
-        .from("profiles")
-        .update({
+try {
+  const {
+    data: sessionData,
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw sessionError;
+  }
+
+  const accessToken =
+    sessionData.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error(
+      "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
+    );
+  }
+
+  const response =
+    await fetch(
+      "/api/quan-tri/nguoi-dung",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Authorization:
+            `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          userId:
+            editingUser.id,
+
           username:
             trimmedUsername,
 
-          full_name:
-            trimmedFullName,
+          password:
+            trimmedPassword,
 
           email:
             trimmedEmail ||
             null,
+
+          full_name:
+            trimmedFullName,
 
           position:
             trimmedPosition ||
@@ -531,40 +562,47 @@ export default function NguoiDungPage() {
             null,
 
           role,
-
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq(
-          "id",
-          editingUser.id
-        );
-
-      if (updateError) {
-        throw updateError;
+        }),
       }
+    );
 
-      setMessage(
-        "Đã cập nhật thông tin người dùng."
-      );
+  const result =
+    await response.json();
 
-      resetForm();
-
-      await loadData();
-    } catch (err) {
-      console.error(
-        "LỖI SỬA NGƯỜI DÙNG:",
-        err
-      );
-
-      setError(
-        "Không thể cập nhật thông tin người dùng."
-      );
-    } finally {
-      setSaving(false);
-    }
+  if (!response.ok) {
+    throw new Error(
+      result.error ||
+        "Không thể cập nhật người dùng."
+    );
   }
 
+  setMessage(
+    result.message ||
+      "Đã cập nhật thông tin người dùng."
+  );
+
+  resetForm();
+
+  await loadData();
+
+} catch (err) {
+
+  console.error(
+    "LỖI SỬA NGƯỜI DÙNG:",
+    err
+  );
+
+  setError(
+    err instanceof Error
+      ? err.message
+      : "Không thể cập nhật thông tin người dùng."
+  );
+
+} finally {
+
+  setSaving(false);
+}
+}
   // =========================
   // KHÓA / MỞ KHÓA
   // =========================
@@ -631,7 +669,7 @@ export default function NguoiDungPage() {
     }
   }
 
-  // =========================
+ // =========================
   // XÓA
   // =========================
 
@@ -835,7 +873,7 @@ export default function NguoiDungPage() {
           <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
-        )}
+        )} 
 
         {/* =================================================
             FORM THÊM / SỬA
@@ -920,30 +958,39 @@ export default function NguoiDungPage() {
 
                 {/* MẬT KHẨU */}
 
-                {showAddForm && (
+               {/* MẬT KHẨU */}
 
-                  <div>
+<div>
 
-                    <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-                      Mật khẩu
-                    </label>
+<label className="mb-1.5 block text-sm font-semibold text-slate-700">
+  {showAddForm
+    ? "Mật khẩu"
+    : "Mật khẩu mới"}
+</label>
 
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(event) =>
-                        setPassword(
-                          event.target.value
-                        )
-                      }
-                      placeholder="Tối thiểu 6 ký tự"
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    />
+<input
+  type="password"
+  value={password}
+  onChange={(event) =>
+    setPassword(
+      event.target.value
+    )
+  }
+  placeholder={
+    showAddForm
+      ? "Tối thiểu 6 ký tự"
+      : "Để trống nếu không muốn thay đổi"
+  }
+  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+/>
 
-                  </div>
+{!showAddForm && (
+  <p className="mt-1.5 text-xs text-slate-500">
+    Nhập mật khẩu mới nếu cần đặt lại mật khẩu cho người dùng.
+  </p>
+)}
 
-                )}
-
+</div>
                 {/* EMAIL */}
 
                 <div>

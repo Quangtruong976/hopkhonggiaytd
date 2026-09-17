@@ -22,6 +22,10 @@ type Schedule = {
   source: string;
   status: string;
   created_at: string | null;
+
+  // Dữ liệu này cho biết lịch lấy từ đâu
+  record_type: "schedule" | "meeting";
+  meeting_id: number | null;
 };
 
 /* =========================================================
@@ -187,52 +191,211 @@ export default function LichCongTacPage() {
      LOAD SCHEDULES
   ========================================================= */
 
-  async function loadSchedules() {
-    setLoading(true);
-    setError("");
+ /* =========================================================
+   LOAD LỊCH HỌP
+   - Lấy lịch từ work_schedules
+   - Đồng thời lấy toàn bộ cuộc họp từ meetings
+   - Không loại bỏ cuộc họp đã kết thúc
+========================================================= */
 
-    const { data, error } =
-      await supabase
-        .from("work_schedules")
-        .select(`
-          id,
-          title,
-          schedule_date,
-          start_time,
-          end_time,
-          location,
-          organization,
-          schedule_type,
-          description,
-          source,
-          status,
-          created_at
-        `)
-        .order("schedule_date", {
-          ascending: true,
-        })
-        .order("start_time", {
-          ascending: true,
-        });
+async function loadSchedules() {
+  setLoading(true);
+  setError("");
 
-    if (error) {
-      console.error(error);
+  try {
+    /* =====================================================
+       1. LỊCH CÔNG TÁC / LỊCH ĐƯỢC TẠO THỦ CÔNG
+    ===================================================== */
 
-      setError(
-        `Không thể tải lịch công tác: ${error.message}`
+    const {
+      data: scheduleData,
+      error: scheduleError,
+    } = await supabase
+      .from("work_schedules")
+      .select(`
+        id,
+        title,
+        schedule_date,
+        start_time,
+        end_time,
+        location,
+        organization,
+        schedule_type,
+        description,
+        source,
+        status,
+        created_at
+      `)
+      .order("schedule_date", {
+        ascending: true,
+      })
+      .order("start_time", {
+        ascending: true,
+      });
+
+    if (scheduleError) {
+      throw new Error(
+        `Không thể tải lịch công tác: ${scheduleError.message}`
       );
-
-      setSchedules([]);
-      setLoading(false);
-      return;
     }
 
-    setSchedules(
-      (data || []) as Schedule[]
+    /* =====================================================
+       2. CUỘC HỌP TRONG PHÒNG HỌP
+       
+       KHÔNG lọc status.
+       Vì vậy:
+       - Đang chuẩn bị      → vẫn hiển thị
+       - Đã phát hành       → vẫn hiển thị
+       - Đã kết thúc        → vẫn hiển thị
+    ===================================================== */
+
+    const {
+      data: meetingData,
+      error: meetingError,
+    } = await supabase
+      .from("meetings")
+      .select(`
+        id,
+        title,
+        meeting_date,
+        start_time,
+        end_time,
+        location,
+        chairperson,
+        secretary,
+        description,
+        status,
+        created_at
+      `)
+      .order("meeting_date", {
+        ascending: true,
+        nullsFirst: false,
+      })
+      .order("start_time", {
+        ascending: true,
+        nullsFirst: false,
+      });
+
+    if (meetingError) {
+      throw new Error(
+        `Không thể tải cuộc họp: ${meetingError.message}`
+      );
+    }
+
+    /* =====================================================
+       3. CHUYỂN work_schedules VỀ CÙNG CẤU TRÚC
+    ===================================================== */
+
+    const schedules: Schedule[] =
+      (scheduleData || []).map(
+        (item) => ({
+          ...item,
+          record_type: "schedule",
+          meeting_id: null,
+        })
+      );
+
+    /* =====================================================
+       4. CHUYỂN meetings → LỊCH HỌP
+       
+       Dùng ID âm để không trùng với ID của
+       work_schedules.
+    ===================================================== */
+
+    const meetings: Schedule[] =
+      (meetingData || [])
+        .filter(
+          (meeting) =>
+            !!meeting.meeting_date &&
+            !!meeting.start_time
+        )
+        .map((meeting) => ({
+          id: -Math.abs(meeting.id),
+
+          title: meeting.title,
+
+          schedule_date:
+            meeting.meeting_date!,
+
+          start_time:
+            meeting.start_time!,
+
+          end_time:
+            meeting.end_time,
+
+          location:
+            meeting.location,
+
+          organization:
+            "Tỉnh đoàn Lâm Đồng",
+
+          schedule_type:
+            "Cuộc họp",
+
+          description:
+            meeting.description,
+
+          source:
+            "Phòng họp",
+
+          status:
+            meeting.status ||
+            "Đang chuẩn bị",
+
+          created_at:
+            meeting.created_at,
+
+          record_type:
+            "meeting",
+
+          meeting_id:
+            meeting.id,
+        }));
+
+    /* =====================================================
+       5. GỘP HAI NGUỒN DỮ LIỆU
+    ===================================================== */
+
+    const combined =
+      [...schedules, ...meetings];
+
+    /* =====================================================
+       6. SẮP XẾP THEO NGÀY + GIỜ
+    ===================================================== */
+
+    combined.sort((a, b) => {
+      const dateCompare =
+        a.schedule_date.localeCompare(
+          b.schedule_date
+        );
+
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+
+      return a.start_time.localeCompare(
+        b.start_time
+      );
+    });
+
+    setSchedules(combined);
+  } catch (error) {
+    console.error(
+      "LỖI TẢI LỊCH HỌP:",
+      error
     );
 
+    setError(
+      error instanceof Error
+        ? error.message
+        : "Không thể tải lịch họp."
+    );
+
+    setSchedules([]);
+  } finally {
     setLoading(false);
   }
+}
 
   /* =========================================================
      LOAD CURRENT USER
@@ -816,12 +979,12 @@ export default function LichCongTacPage() {
                 📅{" "}
               </span>
 
-              Lịch công tác
+              Lịch họp của Tỉnh đoàn
 
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Quản lý và theo dõi lịch công tác của cơ quan.
+              Quản lý và theo dõi lịch họp của Tỉnh đoàn.
             </p>
 
           </div>

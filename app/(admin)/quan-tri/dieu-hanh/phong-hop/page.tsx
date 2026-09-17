@@ -309,6 +309,59 @@ export default function PhongHopPage() {
     setStatus(value);
     setCurrentPage(1);
   }
+  // =====================================================
+  // KẾT THÚC CUỘC HỌP
+  // =====================================================
+
+  async function handleEndMeeting(
+    meetingId: number,
+    meetingTitle: string
+  ) {
+    const confirmed =
+      window.confirm(
+        `Bạn có chắc chắn muốn kết thúc cuộc họp:\n\n"${meetingTitle}"\n\nSau khi kết thúc, cuộc họp sẽ được chốt với trạng thái "Đã kết thúc".`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+
+    try {
+      const { error: updateError } =
+        await supabase
+          .from("meetings")
+          .update({
+            status: "Đã kết thúc",
+          })
+          .eq("id", meetingId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      await loadMeetings();
+
+      setCurrentPage(1);
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    } catch (error) {
+      console.error(
+        "LỖI KẾT THÚC CUỘC HỌP:",
+        error
+      );
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Không thể kết thúc cuộc họp."
+      );
+    }
+  }
 
   // =====================================================
   // XÓA TOÀN BỘ CUỘC HỌP
@@ -650,16 +703,19 @@ export default function PhongHopPage() {
 
                   return (
                     <MeetingRow
-                      key={meeting.id}
-                      meeting={meeting}
-                      index={globalIndex}
-                      onDelete={
-                        handleDeleteMeeting
-                      }
-                      deletingMeetingId={
-                        deletingMeetingId
-                      }
-                    />
+  key={meeting.id}
+  meeting={meeting}
+  index={globalIndex}
+  onDelete={
+    handleDeleteMeeting
+  }
+  onEnd={
+    handleEndMeeting
+  }
+  deletingMeetingId={
+    deletingMeetingId
+  }
+/>
                   );
                 }
               )}
@@ -834,11 +890,16 @@ function MeetingRow({
   meeting,
   index,
   onDelete,
+  onEnd,
   deletingMeetingId,
 }: {
   meeting: Meeting;
   index: number;
   onDelete: (
+    meetingId: number,
+    meetingTitle: string
+  ) => void;
+  onEnd: (
     meetingId: number,
     meetingTitle: string
   ) => void;
@@ -991,7 +1052,22 @@ function MeetingRow({
         ================================================= */}
 
         <div className="flex shrink-0 items-center gap-2 lg:w-auto">
+          {/* KẾT THÚC CUỘC HỌP */}
 
+          {!isFinished && (
+            <button
+              type="button"
+              onClick={() =>
+                onEnd(
+                  meeting.id,
+                  meeting.title
+                )
+              }
+              className="flex h-8 cursor-pointer items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+            >
+              ✓ Kết thúc
+            </button>
+          )}
           {/* SỬA
               Chỉ hiển thị khi chưa kết thúc
           */}

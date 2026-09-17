@@ -329,7 +329,7 @@ export default function DaiBieuShell({
             </span>
 
             <span className="ml-3 min-w-0">
-              Lịch công tác
+              Lịch họp của Tỉnh đoàn
             </span>
 
           </Link>

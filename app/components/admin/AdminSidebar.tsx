@@ -53,7 +53,7 @@ const operationItems = [
     icon: "▣",
   },
   {
-    label: "Lịch công tác",
+    label: "Lịch họp Tỉnh đoàn",
     href: "/quan-tri/dieu-hanh/lich-cong-tac",
     icon: "📅",
   },

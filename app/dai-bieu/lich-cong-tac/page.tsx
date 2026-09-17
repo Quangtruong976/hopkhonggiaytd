@@ -554,7 +554,7 @@ export default function DaiBieuLichCongTacPage() {
               📅{" "}
             </span>
 
-            Lịch công tác của Thường trực Tỉnh đoàn
+            Lịch họp Tỉnh đoàn
 
           </h2>
 
