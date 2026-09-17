@@ -13,6 +13,7 @@ type ViewMode = "week" | "day";
 type ScheduleItem = {
   id: string;
   sourceType: "schedule" | "meeting";
+  meetingId: number | null;
 
   title: string;
   schedule_date: string;
@@ -230,26 +231,19 @@ export default function DaiBieuLichCongTacPage() {
       ------------------------------------------------------- */
 
       const schedulesFromWork: ScheduleItem[] =
-        (scheduleData || []).map(
-          (item) => ({
-            id: `schedule-${item.id}`,
-            sourceType: "schedule",
-
-            title: item.title,
-
-            schedule_date:
-              item.schedule_date,
-
-            start_time:
-              item.start_time,
-
-            end_time:
-              item.end_time,
-
-            location:
-              item.location,
-          })
-        );
+      (scheduleData || []).map(
+        (item) => ({
+          id: `schedule-${item.id}`,
+          sourceType: "schedule",
+          meetingId: null,
+    
+          title: item.title,
+          schedule_date: item.schedule_date,
+          start_time: item.start_time,
+          end_time: item.end_time,
+          location: item.location,
+        })
+      );
 
       /* -------------------------------------------------------
          CHUYỂN meetings
@@ -257,26 +251,19 @@ export default function DaiBieuLichCongTacPage() {
       ------------------------------------------------------- */
 
       const schedulesFromMeetings: ScheduleItem[] =
-        (meetingData || []).map(
-          (item) => ({
-            id: `meeting-${item.id}`,
-            sourceType: "meeting",
-
-            title: item.title,
-
-            schedule_date:
-              item.meeting_date,
-
-            start_time:
-              item.start_time,
-
-            end_time:
-              item.end_time,
-
-            location:
-              item.location,
-          })
-        );
+      (meetingData || []).map(
+        (item) => ({
+          id: `meeting-${item.id}`,
+          sourceType: "meeting",
+          meetingId: item.id,
+    
+          title: item.title,
+          schedule_date: item.meeting_date,
+          start_time: item.start_time,
+          end_time: item.end_time,
+          location: item.location,
+        })
+      );
 
       /* -------------------------------------------------------
          GỘP 2 NGUỒN
@@ -1339,17 +1326,27 @@ export default function DaiBieuLichCongTacPage() {
 
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedScheduleId(
-                    null
-                  )
-                }
-                className="shrink-0 rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
-              >
-                Đóng
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+
+{selectedSchedule.sourceType === "meeting" &&
+  selectedSchedule.meetingId !== null && (
+    <Link
+      href={`/dai-bieu/phong-hop/${selectedSchedule.meetingId}`}
+      className="rounded-lg border border-emerald-300 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+    >
+      Mở phòng họp →
+    </Link>
+  )}
+
+<button
+  type="button"
+  onClick={() => setSelectedScheduleId(null)}
+  className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+>
+  Đóng
+</button>
+
+</div>
 
             </div>
 
