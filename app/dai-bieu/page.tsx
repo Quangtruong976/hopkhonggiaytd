@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 
 type Meeting = {
   id: number;
+  meeting_id: number;
   title: string;
   meeting_date: string | null;
   start_time: string | null;
@@ -30,15 +31,8 @@ type DelegateTask = {
 export default function DaiBieuPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Tên thật của đại biểu đang đăng nhập
   const [currentUserName, setCurrentUserName] = useState("");
-
-  // Số phiếu xin ý kiến đang chờ đại biểu thực hiện
-  const [pendingOpinionCount, setPendingOpinionCount] =
-    useState(0);
-
-  // Số nhiệm vụ mới chưa xem
+  const [pendingOpinionCount, setPendingOpinionCount] = useState(0);
   const [newTaskCount, setNewTaskCount] = useState(0);
 
   useEffect(() => {
@@ -145,10 +139,6 @@ export default function DaiBieuPage() {
           opinionParticipants &&
           opinionParticipants.length > 0
         ) {
-          /*
-           * Lấy danh sách ID phiếu xin ý kiến
-           */
-
           const opinionRequestIds =
             Array.from(
               new Set(
@@ -158,10 +148,6 @@ export default function DaiBieuPage() {
                 )
               )
             );
-
-          /*
-           * Chỉ lấy các phiếu đang lấy ý kiến
-           */
 
           const {
             data: opinionRequests,
@@ -201,11 +187,6 @@ export default function DaiBieuPage() {
        * =======================================================
        * 2.2. ĐẾM NHIỆM VỤ MỚI CHƯA XEM
        * =======================================================
-       *
-       * Chỉ đếm nhiệm vụ:
-       * - được giao cho tài khoản hiện tại
-       * - chưa hoàn thành
-       * - chưa có trong localStorage đã xem
        */
 
       const {
@@ -228,7 +209,8 @@ export default function DaiBieuPage() {
 
         setNewTaskCount(0);
       } else {
-        const tasks = (taskData || []) as DelegateTask[];
+        const tasks =
+          (taskData || []) as DelegateTask[];
 
         let viewedTaskIds: number[] = [];
 
@@ -239,7 +221,8 @@ export default function DaiBieuPage() {
             );
 
           if (stored) {
-            const parsed = JSON.parse(stored);
+            const parsed =
+              JSON.parse(stored);
 
             if (Array.isArray(parsed)) {
               viewedTaskIds = parsed
@@ -280,8 +263,15 @@ export default function DaiBieuPage() {
         error: authError,
       } = await supabase.auth.getUser();
 
-      console.log("AUTH USER:", authUser?.id);
-      console.log("AUTH ERROR:", authError);
+      console.log(
+        "AUTH USER:",
+        authUser?.id
+      );
+
+      console.log(
+        "AUTH ERROR:",
+        authError
+      );
 
       const {
         data: participantData,
@@ -322,14 +312,35 @@ export default function DaiBieuPage() {
 
       /*
        * =======================================================
-       * 4. LẤY ID CÁC CUỘC HỌP
+       * 4. LẤY ID CUỘC HỌP
+       *
+       * QUAN TRỌNG:
+       * meeting_participants.id KHÔNG PHẢI ID CUỘC HỌP.
+       *
+       * ID CUỘC HỌP PHẢI LẤY TỪ:
+       * meeting_participants.meeting_id
        * =======================================================
        */
 
       const meetingIds =
-        participantData.map(
-          (item) => item.meeting_id
-        );
+        participantData
+          .map(
+            (item) => item.meeting_id
+          )
+          .filter(
+            (id): id is number =>
+              typeof id === "number"
+          );
+
+      console.log(
+        "CÁC MEETING ID:",
+        meetingIds
+      );
+
+      if (meetingIds.length === 0) {
+        setMeetings([]);
+        return;
+      }
 
       /*
        * =======================================================
@@ -345,7 +356,10 @@ export default function DaiBieuPage() {
         .select(
           "id, title, meeting_date, start_time, end_time, location, status"
         )
-        .in("id", meetingIds)
+        .in(
+          "id",
+          meetingIds
+        )
         .order("meeting_date", {
           ascending: true,
         })
@@ -370,10 +384,18 @@ export default function DaiBieuPage() {
        */
 
       const participantMap =
-        new Map<number, MeetingParticipant>();
+        new Map<
+          number,
+          MeetingParticipant
+        >();
 
       participantData.forEach(
         (participant) => {
+          /*
+           * KEY LUÔN LÀ meeting_id
+           *
+           * KHÔNG dùng participant.id
+           */
           participantMap.set(
             participant.meeting_id,
             participant
@@ -381,19 +403,59 @@ export default function DaiBieuPage() {
         }
       );
 
+      /*
+       * Tạo danh sách cuộc họp.
+       *
+       * meeting.id = ID của bảng meetings
+       * meeting.meeting_id = ID phòng họp
+       *
+       * Cả hai đều được lấy theo meeting_id,
+       * tuyệt đối không dùng meeting_participants.id.
+       */
+
       const result: Meeting[] = (
         meetingData || []
-      ).map((meeting) => {
-        const participant =
-          participantMap.get(meeting.id);
+      )
+        .map((meeting) => {
+          const participant =
+            participantMap.get(
+              meeting.id
+            );
 
-        return {
-          ...meeting,
-          attendance_status:
-            participant?.attendance_status ||
-            null,
-        };
-      });
+          /*
+           * Chỉ đưa vào danh sách nếu thực sự
+           * có bản ghi mời tương ứng.
+           */
+          if (!participant) {
+            return null;
+          }
+
+          return {
+            ...meeting,
+
+            /*
+             * ĐÂY LÀ ID THỰC CỦA PHÒNG HỌP
+             *
+             * Ví dụ:
+             * participant.id = 22
+             * participant.meeting_id = 1
+             *
+             * => meeting_id = 1
+             */
+            meeting_id:
+              participant.meeting_id,
+
+            attendance_status:
+              participant.attendance_status ||
+              null,
+          };
+        })
+        .filter(
+          (
+            meeting
+          ): meeting is Meeting =>
+            meeting !== null
+        );
 
       console.log(
         "DANH SÁCH CUỘC HỌP SAU KHI GHÉP:",
@@ -406,17 +468,30 @@ export default function DaiBieuPage() {
 
       /*
        * =======================================================
-       * 7. HIỂN THỊ CUỘC HỌP ĐÃ KẾT THÚC TRONG 7 NGÀY
+       * 7. KIỂM TRA ID PHÒNG HỌP
        * =======================================================
-       *
-       * - Cuộc họp chưa diễn ra: vẫn hiển thị.
-       * - Cuộc họp đang diễn ra: vẫn hiển thị.
-       * - Admin đã bấm "Đã kết thúc": vẫn hiển thị 7 ngày.
-       * - Đã quá end_time: vẫn hiển thị 7 ngày.
-       * - Quá 7 ngày kể từ thời điểm kết thúc: ẩn.
-       *
-       * Trạng thái "Đã kết thúc" lấy từ meetings.status.
-       * Trang chi tiết [id]/page.tsx không thay đổi.
+       */
+
+      result.forEach((meeting) => {
+        console.log(
+          "KIỂM TRA PHÒNG HỌP:",
+          {
+            participantMeetingId:
+              meeting.meeting_id,
+            meetingId:
+              meeting.id,
+            title:
+              meeting.title,
+            expectedLink:
+              `/dai-bieu/phong-hop/${meeting.meeting_id}`,
+          }
+        );
+      });
+
+      /*
+       * =======================================================
+       * 8. HIỂN THỊ CUỘC HỌP ĐÃ KẾT THÚC TRONG 7 NGÀY
+       * =======================================================
        */
 
       const now = new Date();
@@ -429,45 +504,24 @@ export default function DaiBieuPage() {
 
           let meetingEndDateTime: Date;
 
-          /*
-           * Có giờ kết thúc:
-           * Lấy đúng thời điểm kết thúc cuộc họp.
-           */
-
           if (meeting.end_time) {
             meetingEndDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.end_time}`
               );
-          }
-
-          /*
-           * Không có giờ kết thúc nhưng có giờ bắt đầu:
-           * Dùng giờ bắt đầu làm mốc thời gian.
-           */
-
-          else if (meeting.start_time) {
+          } else if (
+            meeting.start_time
+          ) {
             meetingEndDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.start_time}`
               );
-          }
-
-          /*
-           * Có ngày nhưng không có giờ:
-           * Xem hết ngày đó là thời điểm kết thúc.
-           */
-
-          else {
+          } else {
             meetingEndDateTime =
               new Date(
                 `${meeting.meeting_date}T23:59:59`
               );
           }
-
-          /*
-           * Cộng thêm 7 ngày kể từ thời điểm kết thúc.
-           */
 
           const visibleUntil =
             new Date(
@@ -478,14 +532,14 @@ export default function DaiBieuPage() {
             visibleUntil.getDate() + 7
           );
 
-          /*
-           * Chỉ ẩn khi đã quá 7 ngày.
-           */
-
-          return visibleUntil >= now;
+          return (
+            visibleUntil >= now
+          );
         });
 
-      setMeetings(visibleMeetings);
+      setMeetings(
+        visibleMeetings
+      );
     } catch (error) {
       console.error(error);
 
@@ -497,16 +551,91 @@ export default function DaiBieuPage() {
   }
 
   /* =========================================================
+     XÁC ĐỊNH CUỘC HỌP ĐÃ KẾT THÚC
+  ========================================================= */
+
+  function isMeetingEnded(
+    meeting: Meeting
+  ) {
+    /*
+     * Admin đã bấm "Đã kết thúc"
+     */
+
+    if (
+      meeting.status ===
+      "Đã kết thúc"
+    ) {
+      return true;
+    }
+
+    if (!meeting.meeting_date) {
+      return false;
+    }
+
+    /*
+     * Có giờ kết thúc
+     */
+
+    if (meeting.end_time) {
+      const endDateTime =
+        new Date(
+          `${meeting.meeting_date}T${meeting.end_time}`
+        );
+
+      return (
+        endDateTime < new Date()
+      );
+    }
+
+    /*
+     * Không có giờ kết thúc nhưng có giờ bắt đầu
+     */
+
+    if (meeting.start_time) {
+      const startDateTime =
+        new Date(
+          `${meeting.meeting_date}T${meeting.start_time}`
+        );
+
+      return (
+        startDateTime < new Date()
+      );
+    }
+
+    /*
+     * Chỉ có ngày
+     */
+
+    const meetingDate =
+      new Date(
+        `${meeting.meeting_date}T23:59:59`
+      );
+
+    return (
+      meetingDate < new Date()
+    );
+  }
+
+  /* =========================================================
      THỐNG KÊ
   ========================================================= */
 
-  const totalMeetings = meetings.length;
+  const totalMeetings =
+    meetings.length;
 
-const activeMeetingCount =
-  meetings.filter(
-    (meeting) =>
-      !isMeetingEnded(meeting)
-  ).length;
+  /*
+   * CHỈ CUỘC HỌP CHƯA KẾT THÚC
+   * mới được tính vào thông báo.
+   *
+   * Cuộc họp đã kết thúc nhưng còn hiển thị
+   * trong 7 ngày sẽ KHÔNG được tính.
+   */
+
+  const activeMeetingCount =
+    meetings.filter(
+      (meeting) =>
+        !isMeetingEnded(meeting)
+    ).length;
 
   const unconfirmedMeetings =
     meetings.filter(
@@ -534,16 +663,20 @@ const activeMeetingCount =
      FORMAT NGÀY
   ========================================================= */
 
-  const today = new Date();
+  const today =
+    new Date();
 
   function formatToday() {
     return today
-      .toLocaleDateString("vi-VN", {
-        weekday: "long",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      })
+      .toLocaleDateString(
+        "vi-VN",
+        {
+          weekday: "long",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }
+      )
       .toUpperCase();
   }
 
@@ -554,9 +687,10 @@ const activeMeetingCount =
       return "Chưa xác định";
     }
 
-    const value = new Date(
-      `${date}T00:00:00`
-    );
+    const value =
+      new Date(
+        `${date}T00:00:00`
+      );
 
     return value.toLocaleDateString(
       "vi-VN",
@@ -577,72 +711,6 @@ const activeMeetingCount =
     }
 
     return time.slice(0, 5);
-  }
-
-  /* =========================================================
-     XÁC ĐỊNH CUỘC HỌP ĐÃ KẾT THÚC
-  ========================================================= */
-
-  function isMeetingEnded(
-    meeting: Meeting
-  ) {
-    /*
-     * Admin đã bấm "Đã kết thúc"
-     */
-
-    if (
-      meeting.status ===
-      "Đã kết thúc"
-    ) {
-      return true;
-    }
-
-    /*
-     * Nếu chưa có ngày thì không thể xác định
-     */
-
-    if (!meeting.meeting_date) {
-      return false;
-    }
-
-    /*
-     * Nếu có giờ kết thúc thì kiểm tra quá giờ.
-     */
-
-    if (meeting.end_time) {
-      const endDateTime =
-        new Date(
-          `${meeting.meeting_date}T${meeting.end_time}`
-        );
-
-      return endDateTime < new Date();
-    }
-
-    /*
-     * Nếu không có giờ kết thúc nhưng có giờ bắt đầu,
-     * dùng giờ bắt đầu làm mốc.
-     */
-
-    if (meeting.start_time) {
-      const startDateTime =
-        new Date(
-          `${meeting.meeting_date}T${meeting.start_time}`
-        );
-
-      return startDateTime < new Date();
-    }
-
-    /*
-     * Nếu chỉ có ngày,
-     * sau 23:59:59 của ngày đó xem là kết thúc.
-     */
-
-    const meetingDate =
-      new Date(
-        `${meeting.meeting_date}T23:59:59`
-      );
-
-    return meetingDate < new Date();
   }
 
   /* =========================================================
@@ -700,8 +768,6 @@ const activeMeetingCount =
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
 
-          {/* TÊN HỆ THỐNG */}
-
           <div className="flex min-w-0 items-center">
 
             <div className="min-w-0">
@@ -717,9 +783,6 @@ const activeMeetingCount =
             </div>
 
           </div>
-
-
-          {/* TÀI KHOẢN ĐẠI BIỂU */}
 
           <Link
             href="/dai-bieu/tai-khoan"
@@ -738,7 +801,6 @@ const activeMeetingCount =
               </p>
 
             </div>
-
 
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white transition group-hover:bg-emerald-500">
 
@@ -765,7 +827,6 @@ const activeMeetingCount =
 
       </header>
 
-
       {/* =====================================================
           MAIN
       ====================================================== */}
@@ -778,33 +839,15 @@ const activeMeetingCount =
 
         <section className="mb-3 pt-1">
 
-          {/* -------------------------------------------------
-              DESKTOP
-
-              Giữ nguyên cách hiển thị hiện tại.
-              Không có thông báo nhiệm vụ ở desktop.
-          -------------------------------------------------- */}
-
           <p className="hidden text-sm font-medium text-emerald-700 md:block">
             {formatToday()}
           </p>
 
-
-          {/* -------------------------------------------------
-              MOBILE / IPAD DỌC
-
-              Ngày bên trái.
-              Thông báo nhiệm vụ bên phải.
-          -------------------------------------------------- */}
-
           <div className="flex items-center justify-between gap-3 md:hidden">
 
             <p className="min-w-0 truncate text-xs font-medium text-emerald-700">
-
               {formatToday()}
-
             </p>
-
 
             {newTaskCount > 0 && (
 
@@ -812,8 +855,6 @@ const activeMeetingCount =
                 href="/dai-bieu/nhiem-vu"
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-semibold text-red-600 shadow-sm transition active:bg-red-100"
               >
-
-                {/* ICON CHUÔNG */}
 
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -830,11 +871,9 @@ const activeMeetingCount =
                   />
                 </svg>
 
-
                 <span className="whitespace-nowrap">
                   Bạn có nhiệm vụ mới
                 </span>
-
 
                 <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                   {newTaskCount}
@@ -847,7 +886,6 @@ const activeMeetingCount =
           </div>
 
         </section>
-
 
         {/* =====================================================
             THÔNG BÁO
@@ -890,12 +928,9 @@ const activeMeetingCount =
 
           </div>
 
-
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-            {/* =================================================
-                THÔNG BÁO CUỘC HỌP
-            ================================================== */}
+            {/* THÔNG BÁO CUỘC HỌP */}
 
             <Link
               href="/dai-bieu/phong-hop"
@@ -921,7 +956,6 @@ const activeMeetingCount =
 
               </div>
 
-
               <div className="min-w-0 flex-1">
 
                 <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-emerald-700 sm:text-base">
@@ -934,11 +968,9 @@ const activeMeetingCount =
 
               </div>
 
-
               <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
-  {activeMeetingCount}
-</span>
-
+                {activeMeetingCount}
+              </span>
 
               <span className="shrink-0 text-slate-300 transition group-hover:text-emerald-600">
                 →
@@ -946,10 +978,7 @@ const activeMeetingCount =
 
             </Link>
 
-
-            {/* =================================================
-                THÔNG BÁO XIN Ý KIẾN
-            ================================================== */}
+            {/* THÔNG BÁO XIN Ý KIẾN */}
 
             <Link
               href="/dai-bieu/xin-y-kien"
@@ -982,7 +1011,6 @@ const activeMeetingCount =
 
               </div>
 
-
               <div className="min-w-0 flex-1">
 
                 <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-orange-600 sm:text-base">
@@ -995,11 +1023,9 @@ const activeMeetingCount =
 
               </div>
 
-
               <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
                 {pendingOpinionCount}
               </span>
-
 
               <span className="shrink-0 text-slate-300 transition group-hover:text-orange-600">
                 →
@@ -1010,7 +1036,6 @@ const activeMeetingCount =
           </div>
 
         </section>
-
 
         {/* =====================================================
             CUỘC HỌP CỦA TÔI
@@ -1040,7 +1065,6 @@ const activeMeetingCount =
 
             </div>
 
-
             <div className="flex shrink-0 items-center gap-2">
 
               {totalMeetings > 0 && (
@@ -1065,10 +1089,7 @@ const activeMeetingCount =
 
           </div>
 
-
-          {/* =================================================
-              LOADING
-          ================================================== */}
+          {/* LOADING */}
 
           {loading && (
 
@@ -1084,10 +1105,7 @@ const activeMeetingCount =
 
           )}
 
-
-          {/* =================================================
-              KHÔNG CÓ CUỘC HỌP
-          ================================================== */}
+          {/* KHÔNG CÓ CUỘC HỌP */}
 
           {!loading &&
             meetings.length === 0 && (
@@ -1113,11 +1131,9 @@ const activeMeetingCount =
 
                 </div>
 
-
                 <h4 className="mt-4 text-base font-semibold text-slate-800">
                   Hiện chưa có cuộc họp được mời
                 </h4>
-
 
                 <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
                   Khi điều hành viên tạo cuộc họp và mời bạn tham dự,
@@ -1128,10 +1144,7 @@ const activeMeetingCount =
 
             )}
 
-
-          {/* =================================================
-              DANH SÁCH CUỘC HỌP
-          ================================================== */}
+          {/* DANH SÁCH CUỘC HỌP */}
 
           {!loading &&
             meetings.length > 0 && (
@@ -1147,10 +1160,28 @@ const activeMeetingCount =
                         meeting
                       );
 
+                    /*
+                     * QUAN TRỌNG:
+                     *
+                     * Link phòng họp dùng meeting.meeting_id.
+                     *
+                     * Không dùng:
+                     * - meeting_participants.id
+                     *
+                     * Ví dụ:
+                     * participant.id = 22
+                     * participant.meeting_id = 1
+                     *
+                     * => /dai-bieu/phong-hop/1
+                     */
+
+                    const meetingRoomId =
+                      meeting.meeting_id;
+
                     return (
                       <Link
                         key={meeting.id}
-                        href={`/dai-bieu/phong-hop/${meeting.id}`}
+                        href={`/dai-bieu/phong-hop/${meetingRoomId}`}
                         className={
                           meetingEnded
                             ? "group block cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-3 opacity-65 shadow-sm sm:p-4"
@@ -1160,9 +1191,7 @@ const activeMeetingCount =
 
                         <div className="flex items-center gap-3 sm:gap-4">
 
-                          {/* =================================================
-                              NGÀY
-                          ================================================== */}
+                          {/* NGÀY */}
 
                           <div
                             className={
@@ -1188,7 +1217,6 @@ const activeMeetingCount =
 
                             </span>
 
-
                             <span className="text-lg font-bold sm:text-xl">
 
                               {meeting.meeting_date
@@ -1201,16 +1229,9 @@ const activeMeetingCount =
 
                           </div>
 
-
-                          {/* =================================================
-                              NỘI DUNG
-                          ================================================== */}
+                          {/* NỘI DUNG */}
 
                           <div className="min-w-0 flex-1">
-
-                            {/* =================================================
-                                NGÀY + TÊN CUỘC HỌP CÙNG MỘT HÀNG
-                            ================================================== */}
 
                             <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
 
@@ -1237,11 +1258,9 @@ const activeMeetingCount =
 
                               </p>
 
-
                               <span className="shrink-0 text-slate-300">
                                 •
                               </span>
-
 
                               <h4
                                 className={
@@ -1256,10 +1275,7 @@ const activeMeetingCount =
 
                             </div>
 
-
-                            {/* =================================================
-                                GIỜ + ĐỊA ĐIỂM
-                            ================================================== */}
+                            {/* GIỜ + ĐỊA ĐIỂM */}
 
                             <div className="mt-1.5 flex min-w-0 items-center gap-x-3 text-[10px] text-slate-400 sm:gap-x-5 sm:text-xs">
 
@@ -1278,7 +1294,6 @@ const activeMeetingCount =
 
                               </span>
 
-
                               <span className="min-w-0 truncate">
 
                                 📍{" "}
@@ -1290,10 +1305,7 @@ const activeMeetingCount =
 
                             </div>
 
-
-                            {/* =================================================
-                                TRẠNG THÁI THAM DỰ
-                            ================================================== */}
+                            {/* TRẠNG THÁI THAM DỰ */}
 
                             <div className="mt-1.5">
 
@@ -1306,21 +1318,20 @@ const activeMeetingCount =
                                       )}`
                                 }
                               >
+
                                 {meetingEnded
                                   ? "Đã kết thúc"
                                   : getAttendanceLabel(
                                       meeting.attendance_status
                                     )}
+
                               </span>
 
                             </div>
 
                           </div>
 
-
-                          {/* =================================================
-                              MŨI TÊN
-                          ================================================== */}
+                          {/* MŨI TÊN */}
 
                           <div
                             className={
@@ -1343,7 +1354,6 @@ const activeMeetingCount =
             )}
 
         </section>
-
 
         {/* =====================================================
             TIỆN ÍCH
@@ -1368,7 +1378,6 @@ const activeMeetingCount =
             </p>
 
           </div>
-
 
           <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
 
@@ -1400,7 +1409,6 @@ const activeMeetingCount =
 
                 </div>
 
-
                 <div className="min-w-0 flex-1">
 
                   <div className="flex items-center justify-between gap-3">
@@ -1411,11 +1419,9 @@ const activeMeetingCount =
 
                   </div>
 
-
                   <p className="mt-1 text-sm leading-5 text-slate-500">
                     Theo dõi lịch công tác của cơ quan Tỉnh đoàn.
                   </p>
-
 
                   <p className="mt-3 text-xs font-semibold text-blue-600">
                     Xem lịch công tác →
@@ -1426,7 +1432,6 @@ const activeMeetingCount =
               </div>
 
             </Link>
-
 
             {/* XIN Ý KIẾN */}
 
@@ -1463,7 +1468,6 @@ const activeMeetingCount =
 
                 </div>
 
-
                 <div className="min-w-0 flex-1">
 
                   <div className="flex items-center justify-between gap-3">
@@ -1474,11 +1478,9 @@ const activeMeetingCount =
 
                   </div>
 
-
                   <p className="mt-1 text-sm leading-5 text-slate-500">
                     Xem và phản hồi các nội dung đang được lấy ý kiến.
                   </p>
-
 
                   <p className="mt-3 text-xs font-semibold text-orange-600">
                     Xem nội dung →
