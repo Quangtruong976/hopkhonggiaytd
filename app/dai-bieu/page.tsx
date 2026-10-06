@@ -34,7 +34,8 @@ export default function DaiBieuPage() {
   const [currentUserName, setCurrentUserName] = useState("");
 
   // Số phiếu xin ý kiến đang chờ đại biểu thực hiện
-  const [pendingOpinionCount, setPendingOpinionCount] = useState(0);
+  const [pendingOpinionCount, setPendingOpinionCount] =
+    useState(0);
 
   // Số nhiệm vụ mới chưa xem
   const [newTaskCount, setNewTaskCount] = useState(0);
@@ -143,6 +144,10 @@ export default function DaiBieuPage() {
           opinionParticipants &&
           opinionParticipants.length > 0
         ) {
+          /*
+           * Lấy danh sách ID phiếu xin ý kiến
+           */
+
           const opinionRequestIds =
             Array.from(
               new Set(
@@ -152,6 +157,10 @@ export default function DaiBieuPage() {
                 )
               )
             );
+
+          /*
+           * Chỉ lấy các phiếu đang lấy ý kiến
+           */
 
           const {
             data: opinionRequests,
@@ -191,6 +200,11 @@ export default function DaiBieuPage() {
        * =======================================================
        * 2.2. ĐẾM NHIỆM VỤ MỚI CHƯA XEM
        * =======================================================
+       *
+       * Chỉ đếm nhiệm vụ:
+       * - được giao cho tài khoản hiện tại
+       * - chưa hoàn thành
+       * - chưa có trong localStorage đã xem
        */
 
       const {
@@ -198,23 +212,12 @@ export default function DaiBieuPage() {
         error: taskError,
       } = await supabase
         .from("meeting_tasks")
-        .select(
-          "id, title, status"
-        )
-        .eq(
-          "assignee_id",
-          user.id
-        )
-        .neq(
-          "status",
-          "Đã hoàn thành"
-        )
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        );
+        .select("id, title, status")
+        .eq("assignee_id", user.id)
+        .neq("status", "Đã hoàn thành")
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (taskError) {
         console.error(
@@ -224,8 +227,7 @@ export default function DaiBieuPage() {
 
         setNewTaskCount(0);
       } else {
-        const tasks =
-          (taskData || []) as DelegateTask[];
+        const tasks = (taskData || []) as DelegateTask[];
 
         let viewedTaskIds: number[] = [];
 
@@ -236,16 +238,14 @@ export default function DaiBieuPage() {
             );
 
           if (stored) {
-            const parsed =
-              JSON.parse(stored);
+            const parsed = JSON.parse(stored);
 
             if (Array.isArray(parsed)) {
-              viewedTaskIds =
-                parsed
-                  .map(Number)
-                  .filter((id) =>
-                    Number.isFinite(id)
-                  );
+              viewedTaskIds = parsed
+                .map(Number)
+                .filter((id) =>
+                  Number.isFinite(id)
+                );
             }
           }
         } catch (error) {
@@ -273,11 +273,17 @@ export default function DaiBieuPage() {
        * 3. LẤY CÁC CUỘC HỌP ĐƯỢC MỜI
        * =======================================================
        */
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+      
+      console.log("AUTH USER:", authUser?.id);
+      console.log("AUTH ERROR:", authError);
 
-      console.log(
-        "AUTH USER:",
-        user.id
-      );
+
+
+      
 
       const {
         data: participantData,
@@ -287,10 +293,7 @@ export default function DaiBieuPage() {
         .select(
           "id, meeting_id, attendance_status"
         )
-        .eq(
-          "profile_id",
-          user.id
-        );
+        .eq("profile_id", user.id);
 
       if (participantError) {
         console.error(
@@ -344,22 +347,13 @@ export default function DaiBieuPage() {
         .select(
           "id, title, meeting_date, start_time, end_time, location"
         )
-        .in(
-          "id",
-          meetingIds
-        )
-        .order(
-          "meeting_date",
-          {
-            ascending: true,
-          }
-        )
-        .order(
-          "start_time",
-          {
-            ascending: true,
-          }
-        );
+        .in("id", meetingIds)
+        .order("meeting_date", {
+          ascending: true,
+        })
+        .order("start_time", {
+          ascending: true,
+        });
 
       if (meetingError) {
         console.error(
@@ -378,10 +372,7 @@ export default function DaiBieuPage() {
        */
 
       const participantMap =
-        new Map<
-          number,
-          MeetingParticipant
-        >();
+        new Map<number, MeetingParticipant>();
 
       participantData.forEach(
         (participant) => {
@@ -396,9 +387,7 @@ export default function DaiBieuPage() {
         meetingData || []
       ).map((meeting) => {
         const participant =
-          participantMap.get(
-            meeting.id
-          );
+          participantMap.get(meeting.id);
 
         return {
           ...meeting,
@@ -419,86 +408,60 @@ export default function DaiBieuPage() {
 
       /*
        * =======================================================
-       * 7. HIỂN THỊ CUỘC HỌP TRONG VÒNG 30 NGÀY SAU KHI KẾT THÚC
+       * 7. CHỈ HIỂN THỊ CUỘC HỌP CHƯA KẾT THÚC
        * =======================================================
-       *
-       * - Cuộc họp chưa kết thúc: hiển thị.
-       * - Cuộc họp đã kết thúc: vẫn hiển thị 30 ngày.
-       * - Quá 30 ngày kể từ thời điểm kết thúc: ẩn.
-       *
-       * Mốc kết thúc:
-       * - Có end_time: meeting_date + end_time.
-       * - Không có end_time nhưng có start_time:
-       *   dùng meeting_date + start_time.
-       * - Chỉ có ngày: dùng 23:59:59.
        */
 
       const now = new Date();
 
-      const THIRTY_DAYS_MS =
-        30 *
-        24 *
-        60 *
-        60 *
-        1000;
-
-      const visibleMeetings =
+      const upcomingMeetings =
         result.filter((meeting) => {
           if (!meeting.meeting_date) {
             return true;
           }
 
-          let endDateTime: Date;
+          /*
+           * Có giờ kết thúc:
+           * Chỉ ẩn sau khi cuộc họp kết thúc.
+           */
 
           if (meeting.end_time) {
-            endDateTime =
+            const endDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.end_time}`
               );
-          } else if (
-            meeting.start_time
-          ) {
-            endDateTime =
+
+            return endDateTime >= now;
+          }
+
+          /*
+           * Không có giờ kết thúc:
+           * Dùng giờ bắt đầu.
+           */
+
+          if (meeting.start_time) {
+            const startDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.start_time}`
               );
-          } else {
-            endDateTime =
-              new Date(
-                `${meeting.meeting_date}T23:59:59`
-              );
+
+            return startDateTime >= now;
           }
 
-          if (
-            Number.isNaN(
-              endDateTime.getTime()
-            )
-          ) {
-            return true;
-          }
+          /*
+           * Có ngày nhưng không có giờ:
+           * Hiển thị hết ngày đó.
+           */
 
-          const hideAfter =
-            endDateTime.getTime() +
-            THIRTY_DAYS_MS;
+          const meetingDate =
+            new Date(
+              `${meeting.meeting_date}T23:59:59`
+            );
 
-          return (
-            now.getTime() <=
-            hideAfter
-          );
+          return meetingDate >= now;
         });
 
-      setMeetings(
-        visibleMeetings
-      );
-
-      console.log(
-        "DANH SÁCH CUỘC HỌP HIỂN THỊ:",
-        JSON.stringify(
-          visibleMeetings,
-          null,
-          2
-        )
-      );
+      setMeetings(upcomingMeetings);
     } catch (error) {
       console.error(error);
 
@@ -513,8 +476,7 @@ export default function DaiBieuPage() {
      THỐNG KÊ
   ========================================================= */
 
-  const totalMeetings =
-    meetings.length;
+  const totalMeetings = meetings.length;
 
   const unconfirmedMeetings =
     meetings.filter(
@@ -642,6 +604,8 @@ export default function DaiBieuPage() {
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
 
+          {/* TÊN HỆ THỐNG */}
+
           <div className="flex min-w-0 items-center">
 
             <div className="min-w-0">
@@ -657,6 +621,9 @@ export default function DaiBieuPage() {
             </div>
 
           </div>
+
+
+          {/* TÀI KHOẢN ĐẠI BIỂU */}
 
           <Link
             href="/dai-bieu/tai-khoan"
@@ -675,6 +642,7 @@ export default function DaiBieuPage() {
               </p>
 
             </div>
+
 
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white transition group-hover:bg-emerald-500">
 
@@ -701,6 +669,11 @@ export default function DaiBieuPage() {
 
       </header>
 
+
+      {/* =====================================================
+          MAIN
+      ====================================================== */}
+
       <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6">
 
         {/* =====================================================
@@ -709,15 +682,33 @@ export default function DaiBieuPage() {
 
         <section className="mb-3 pt-1">
 
+          {/* -------------------------------------------------
+              DESKTOP
+              
+              Giữ nguyên cách hiển thị hiện tại.
+              Không có thông báo nhiệm vụ ở desktop.
+          -------------------------------------------------- */}
+
           <p className="hidden text-sm font-medium text-emerald-700 md:block">
             {formatToday()}
           </p>
 
+
+          {/* -------------------------------------------------
+              MOBILE / IPAD DỌC
+              
+              Ngày bên trái.
+              Thông báo nhiệm vụ bên phải.
+          -------------------------------------------------- */}
+
           <div className="flex items-center justify-between gap-3 md:hidden">
 
             <p className="min-w-0 truncate text-xs font-medium text-emerald-700">
+
               {formatToday()}
+
             </p>
+
 
             {newTaskCount > 0 && (
 
@@ -725,6 +716,8 @@ export default function DaiBieuPage() {
                 href="/dai-bieu/nhiem-vu"
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-semibold text-red-600 shadow-sm transition active:bg-red-100"
               >
+
+                {/* ICON CHUÔNG */}
 
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -741,9 +734,11 @@ export default function DaiBieuPage() {
                   />
                 </svg>
 
+
                 <span className="whitespace-nowrap">
                   Bạn có nhiệm vụ mới
                 </span>
+
 
                 <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                   {newTaskCount}
@@ -756,6 +751,7 @@ export default function DaiBieuPage() {
           </div>
 
         </section>
+
 
         {/* =====================================================
             THÔNG BÁO
@@ -798,7 +794,12 @@ export default function DaiBieuPage() {
 
           </div>
 
+
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+            {/* =================================================
+                THÔNG BÁO CUỘC HỌP
+            ================================================== */}
 
             <Link
               href="/dai-bieu/phong-hop"
@@ -824,6 +825,7 @@ export default function DaiBieuPage() {
 
               </div>
 
+
               <div className="min-w-0 flex-1">
 
                 <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-emerald-700 sm:text-base">
@@ -836,15 +838,22 @@ export default function DaiBieuPage() {
 
               </div>
 
+
               <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
                 {totalMeetings}
               </span>
+
 
               <span className="shrink-0 text-slate-300 transition group-hover:text-emerald-600">
                 →
               </span>
 
             </Link>
+
+
+            {/* =================================================
+                THÔNG BÁO XIN Ý KIẾN
+            ================================================== */}
 
             <Link
               href="/dai-bieu/xin-y-kien"
@@ -877,6 +886,7 @@ export default function DaiBieuPage() {
 
               </div>
 
+
               <div className="min-w-0 flex-1">
 
                 <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-orange-600 sm:text-base">
@@ -889,9 +899,11 @@ export default function DaiBieuPage() {
 
               </div>
 
+
               <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
                 {pendingOpinionCount}
               </span>
+
 
               <span className="shrink-0 text-slate-300 transition group-hover:text-orange-600">
                 →
@@ -902,6 +914,7 @@ export default function DaiBieuPage() {
           </div>
 
         </section>
+
 
         {/* =====================================================
             CUỘC HỌP CỦA TÔI
@@ -931,6 +944,7 @@ export default function DaiBieuPage() {
 
             </div>
 
+
             <div className="flex shrink-0 items-center gap-2">
 
               {totalMeetings > 0 && (
@@ -955,7 +969,10 @@ export default function DaiBieuPage() {
 
           </div>
 
-          {/* LOADING */}
+
+          {/* =================================================
+              LOADING
+          ================================================== */}
 
           {loading && (
 
@@ -971,7 +988,10 @@ export default function DaiBieuPage() {
 
           )}
 
-          {/* KHÔNG CÓ CUỘC HỌP */}
+
+          {/* =================================================
+              KHÔNG CÓ CUỘC HỌP
+          ================================================== */}
 
           {!loading &&
             meetings.length === 0 && (
@@ -997,9 +1017,11 @@ export default function DaiBieuPage() {
 
                 </div>
 
+
                 <h4 className="mt-4 text-base font-semibold text-slate-800">
                   Hiện chưa có cuộc họp được mời
                 </h4>
+
 
                 <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
                   Khi điều hành viên tạo cuộc họp và mời bạn tham dự,
@@ -1010,7 +1032,10 @@ export default function DaiBieuPage() {
 
             )}
 
-          {/* DANH SÁCH CUỘC HỌP */}
+
+          {/* =================================================
+              DANH SÁCH CUỘC HỌP
+          ================================================== */}
 
           {!loading &&
             meetings.length > 0 && (
@@ -1028,6 +1053,10 @@ export default function DaiBieuPage() {
                     >
 
                       <div className="flex items-center gap-3 sm:gap-4">
+
+                        {/* =================================================
+                            NGÀY
+                        ================================================== */}
 
                         <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:h-16 sm:w-20">
 
@@ -1047,6 +1076,7 @@ export default function DaiBieuPage() {
 
                           </span>
 
+
                           <span className="text-lg font-bold sm:text-xl">
 
                             {meeting.meeting_date
@@ -1059,7 +1089,16 @@ export default function DaiBieuPage() {
 
                         </div>
 
+
+                        {/* =================================================
+                            NỘI DUNG
+                        ================================================== */}
+
                         <div className="min-w-0 flex-1">
+
+                          {/* =================================================
+                              NGÀY + TÊN CUỘC HỌP CÙNG MỘT HÀNG
+                          ================================================== */}
 
                           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
 
@@ -1080,9 +1119,11 @@ export default function DaiBieuPage() {
 
                             </p>
 
+
                             <span className="shrink-0 text-slate-300">
                               •
                             </span>
+
 
                             <h4
                               className="min-w-0 truncate text-sm font-semibold text-slate-900 group-hover:text-emerald-700 sm:text-base"
@@ -1092,6 +1133,11 @@ export default function DaiBieuPage() {
                             </h4>
 
                           </div>
+
+
+                          {/* =================================================
+                              GIỜ + ĐỊA ĐIỂM
+                          ================================================== */}
 
                           <div className="mt-1.5 flex min-w-0 items-center gap-x-3 text-[10px] text-slate-500 sm:gap-x-5 sm:text-xs">
 
@@ -1110,6 +1156,7 @@ export default function DaiBieuPage() {
 
                             </span>
 
+
                             <span className="min-w-0 truncate">
 
                               📍{" "}
@@ -1120,6 +1167,11 @@ export default function DaiBieuPage() {
                             </span>
 
                           </div>
+
+
+                          {/* =================================================
+                              TRẠNG THÁI THAM DỰ
+                          ================================================== */}
 
                           <div className="mt-1.5">
 
@@ -1137,8 +1189,15 @@ export default function DaiBieuPage() {
 
                         </div>
 
+
+                        {/* =================================================
+                            MŨI TÊN
+                        ================================================== */}
+
                         <div className="shrink-0 text-base text-slate-300 transition group-hover:text-emerald-600 sm:text-lg">
+
                           →
+
                         </div>
 
                       </div>
@@ -1152,6 +1211,7 @@ export default function DaiBieuPage() {
             )}
 
         </section>
+
 
         {/* =====================================================
             TIỆN ÍCH
@@ -1176,6 +1236,7 @@ export default function DaiBieuPage() {
             </p>
 
           </div>
+
 
           <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
 
@@ -1207,6 +1268,7 @@ export default function DaiBieuPage() {
 
                 </div>
 
+
                 <div className="min-w-0 flex-1">
 
                   <div className="flex items-center justify-between gap-3">
@@ -1217,9 +1279,11 @@ export default function DaiBieuPage() {
 
                   </div>
 
+
                   <p className="mt-1 text-sm leading-5 text-slate-500">
                     Theo dõi lịch công tác của cơ quan Tỉnh đoàn.
                   </p>
+
 
                   <p className="mt-3 text-xs font-semibold text-blue-600">
                     Xem lịch công tác →
@@ -1230,6 +1294,7 @@ export default function DaiBieuPage() {
               </div>
 
             </Link>
+
 
             {/* XIN Ý KIẾN */}
 
@@ -1266,6 +1331,7 @@ export default function DaiBieuPage() {
 
                 </div>
 
+
                 <div className="min-w-0 flex-1">
 
                   <div className="flex items-center justify-between gap-3">
@@ -1276,9 +1342,11 @@ export default function DaiBieuPage() {
 
                   </div>
 
+
                   <p className="mt-1 text-sm leading-5 text-slate-500">
                     Xem và phản hồi các nội dung đang được lấy ý kiến.
                   </p>
+
 
                   <p className="mt-3 text-xs font-semibold text-orange-600">
                     Xem nội dung →
