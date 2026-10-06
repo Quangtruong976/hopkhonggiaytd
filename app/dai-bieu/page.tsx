@@ -1144,9 +1144,9 @@ export default function DaiBieuPage() {
 
             )}
 
-          {/* DANH SÁCH CUỘC HỌP */}
+                   {/* DANH SÁCH CUỘC HỌP */}
 
-          {!loading &&
+                   {!loading &&
             meetings.length > 0 && (
 
               <div className="space-y-3">
@@ -1160,32 +1160,13 @@ export default function DaiBieuPage() {
                         meeting
                       );
 
-                    /*
-                     * QUAN TRỌNG:
-                     *
-                     * Link phòng họp dùng meeting.meeting_id.
-                     *
-                     * Không dùng:
-                     * - meeting_participants.id
-                     *
-                     * Ví dụ:
-                     * participant.id = 22
-                     * participant.meeting_id = 1
-                     *
-                     * => /dai-bieu/phong-hop/1
-                     */
-
-                    const meetingRoomId =
-                      meeting.meeting_id;
-
                     return (
-                      <Link
+                      <div
                         key={meeting.id}
-                        href={`/dai-bieu/phong-hop/${meetingRoomId}`}
                         className={
                           meetingEnded
-                            ? "group block cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-3 opacity-65 shadow-sm sm:p-4"
-                            : "group block rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md sm:p-4"
+                            ? "group block rounded-2xl border border-slate-200 bg-slate-50 p-3 opacity-65 shadow-sm sm:p-4"
+                            : "group block rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4"
                         }
                       >
 
@@ -1266,7 +1247,7 @@ export default function DaiBieuPage() {
                                 className={
                                   meetingEnded
                                     ? "min-w-0 truncate text-sm font-semibold text-slate-500 sm:text-base"
-                                    : "min-w-0 truncate text-sm font-semibold text-slate-900 group-hover:text-emerald-700 sm:text-base"
+                                    : "min-w-0 truncate text-sm font-semibold text-slate-900 sm:text-base"
                                 }
                                 title={meeting.title}
                               >
@@ -1337,7 +1318,7 @@ export default function DaiBieuPage() {
                             className={
                               meetingEnded
                                 ? "shrink-0 text-base text-slate-300 sm:text-lg"
-                                : "shrink-0 text-base text-slate-300 transition group-hover:text-emerald-600 sm:text-lg"
+                                : "shrink-0 text-base text-slate-300 sm:text-lg"
                             }
                           >
                             →
@@ -1345,7 +1326,7 @@ export default function DaiBieuPage() {
 
                         </div>
 
-                      </Link>
+                      </div>
                     );
                   })}
 
