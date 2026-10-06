@@ -34,8 +34,7 @@ export default function DaiBieuPage() {
   const [currentUserName, setCurrentUserName] = useState("");
 
   // Số phiếu xin ý kiến đang chờ đại biểu thực hiện
-  const [pendingOpinionCount, setPendingOpinionCount] =
-    useState(0);
+  const [pendingOpinionCount, setPendingOpinionCount] = useState(0);
 
   // Số nhiệm vụ mới chưa xem
   const [newTaskCount, setNewTaskCount] = useState(0);
@@ -144,10 +143,6 @@ export default function DaiBieuPage() {
           opinionParticipants &&
           opinionParticipants.length > 0
         ) {
-          /*
-           * Lấy danh sách ID phiếu xin ý kiến
-           */
-
           const opinionRequestIds =
             Array.from(
               new Set(
@@ -157,10 +152,6 @@ export default function DaiBieuPage() {
                 )
               )
             );
-
-          /*
-           * Chỉ lấy các phiếu đang lấy ý kiến
-           */
 
           const {
             data: opinionRequests,
@@ -200,11 +191,6 @@ export default function DaiBieuPage() {
        * =======================================================
        * 2.2. ĐẾM NHIỆM VỤ MỚI CHƯA XEM
        * =======================================================
-       *
-       * Chỉ đếm nhiệm vụ:
-       * - được giao cho tài khoản hiện tại
-       * - chưa hoàn thành
-       * - chưa có trong localStorage đã xem
        */
 
       const {
@@ -212,12 +198,23 @@ export default function DaiBieuPage() {
         error: taskError,
       } = await supabase
         .from("meeting_tasks")
-        .select("id, title, status")
-        .eq("assignee_id", user.id)
-        .neq("status", "Đã hoàn thành")
-        .order("created_at", {
-          ascending: false,
-        });
+        .select(
+          "id, title, status"
+        )
+        .eq(
+          "assignee_id",
+          user.id
+        )
+        .neq(
+          "status",
+          "Đã hoàn thành"
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          }
+        );
 
       if (taskError) {
         console.error(
@@ -277,19 +274,9 @@ export default function DaiBieuPage() {
        * =======================================================
        */
 
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
-
       console.log(
         "AUTH USER:",
-        authUser?.id
-      );
-
-      console.log(
-        "AUTH ERROR:",
-        authError
+        user.id
       );
 
       const {
@@ -300,7 +287,10 @@ export default function DaiBieuPage() {
         .select(
           "id, meeting_id, attendance_status"
         )
-        .eq("profile_id", user.id);
+        .eq(
+          "profile_id",
+          user.id
+        );
 
       if (participantError) {
         console.error(
@@ -358,12 +348,18 @@ export default function DaiBieuPage() {
           "id",
           meetingIds
         )
-        .order("meeting_date", {
-          ascending: true,
-        })
-        .order("start_time", {
-          ascending: true,
-        });
+        .order(
+          "meeting_date",
+          {
+            ascending: true,
+          }
+        )
+        .order(
+          "start_time",
+          {
+            ascending: true,
+          }
+        );
 
       if (meetingError) {
         console.error(
@@ -423,28 +419,18 @@ export default function DaiBieuPage() {
 
       /*
        * =======================================================
-       * 7. HIỂN THỊ CUỘC HỌP TRONG VÒNG 30 NGÀY
+       * 7. HIỂN THỊ CUỘC HỌP TRONG VÒNG 30 NGÀY SAU KHI KẾT THÚC
        * =======================================================
        *
-       * Quy tắc:
+       * - Cuộc họp chưa kết thúc: hiển thị.
+       * - Cuộc họp đã kết thúc: vẫn hiển thị 30 ngày.
+       * - Quá 30 ngày kể từ thời điểm kết thúc: ẩn.
        *
-       * - Cuộc họp chưa kết thúc:
-       *   vẫn hiển thị.
-       *
-       * - Cuộc họp đã kết thúc:
-       *   vẫn hiển thị 30 ngày kể từ thời điểm kết thúc.
-       *
-       * - Quá 30 ngày kể từ thời điểm kết thúc:
-       *   mới ẩn.
-       *
-       * - Nếu có end_time:
-       *   dùng meeting_date + end_time.
-       *
-       * - Nếu không có end_time nhưng có start_time:
+       * Mốc kết thúc:
+       * - Có end_time: meeting_date + end_time.
+       * - Không có end_time nhưng có start_time:
        *   dùng meeting_date + start_time.
-       *
-       * - Nếu chỉ có ngày:
-       *   dùng 23:59:59 của ngày họp.
+       * - Chỉ có ngày: dùng 23:59:59.
        */
 
       const now = new Date();
@@ -458,57 +444,30 @@ export default function DaiBieuPage() {
 
       const visibleMeetings =
         result.filter((meeting) => {
-          /*
-           * Không có ngày họp:
-           * vẫn giữ để không làm mất cuộc họp.
-           */
-
           if (!meeting.meeting_date) {
             return true;
           }
 
           let endDateTime: Date;
 
-          /*
-           * Có giờ kết thúc:
-           * xác định chính xác thời điểm cuộc họp kết thúc.
-           */
-
           if (meeting.end_time) {
             endDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.end_time}`
               );
-          }
-
-          /*
-           * Không có giờ kết thúc:
-           * dùng giờ bắt đầu làm mốc.
-           */
-
-          else if (meeting.start_time) {
+          } else if (
+            meeting.start_time
+          ) {
             endDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.start_time}`
               );
-          }
-
-          /*
-           * Chỉ có ngày:
-           * xem 23:59:59 là thời điểm kết thúc.
-           */
-
-          else {
+          } else {
             endDateTime =
               new Date(
                 `${meeting.meeting_date}T23:59:59`
               );
           }
-
-          /*
-           * Nếu ngày/giờ không hợp lệ:
-           * vẫn hiển thị cuộc họp.
-           */
 
           if (
             Number.isNaN(
@@ -518,22 +477,9 @@ export default function DaiBieuPage() {
             return true;
           }
 
-          /*
-           * Mốc ẩn:
-           *
-           * thời điểm kết thúc
-           * +
-           * 30 ngày.
-           */
-
           const hideAfter =
             endDateTime.getTime() +
             THIRTY_DAYS_MS;
-
-          /*
-           * Còn trong 30 ngày:
-           * hiển thị.
-           */
 
           return (
             now.getTime() <=
@@ -553,13 +499,11 @@ export default function DaiBieuPage() {
           2
         )
       );
-
     } catch (error) {
       console.error(error);
 
       setMeetings([]);
       setNewTaskCount(0);
-
     } finally {
       setLoading(false);
     }
@@ -698,8 +642,6 @@ export default function DaiBieuPage() {
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
 
-          {/* TÊN HỆ THỐNG */}
-
           <div className="flex min-w-0 items-center">
 
             <div className="min-w-0">
@@ -715,8 +657,6 @@ export default function DaiBieuPage() {
             </div>
 
           </div>
-
-          {/* TÀI KHOẢN ĐẠI BIỂU */}
 
           <Link
             href="/dai-bieu/tai-khoan"
@@ -761,10 +701,6 @@ export default function DaiBieuPage() {
 
       </header>
 
-      {/* =====================================================
-          MAIN
-      ====================================================== */}
-
       <div className="mx-auto max-w-7xl px-4 py-2 sm:px-6">
 
         {/* =====================================================
@@ -789,8 +725,6 @@ export default function DaiBieuPage() {
                 href="/dai-bieu/nhiem-vu"
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1.5 text-[10px] font-semibold text-red-600 shadow-sm transition active:bg-red-100"
               >
-
-                {/* ICON CHUÔNG */}
 
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -866,10 +800,6 @@ export default function DaiBieuPage() {
 
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-            {/* =================================================
-                THÔNG BÁO CUỘC HỌP
-            ================================================== */}
-
             <Link
               href="/dai-bieu/phong-hop"
               className="group flex items-center gap-3 border-b border-slate-100 px-3 py-3.5 transition hover:bg-emerald-50/40 sm:gap-4 sm:px-5 sm:py-4"
@@ -915,10 +845,6 @@ export default function DaiBieuPage() {
               </span>
 
             </Link>
-
-            {/* =================================================
-                THÔNG BÁO XIN Ý KIẾN
-            ================================================== */}
 
             <Link
               href="/dai-bieu/xin-y-kien"
@@ -1029,9 +955,7 @@ export default function DaiBieuPage() {
 
           </div>
 
-          {/* =================================================
-              LOADING
-          ================================================== */}
+          {/* LOADING */}
 
           {loading && (
 
@@ -1047,9 +971,7 @@ export default function DaiBieuPage() {
 
           )}
 
-          {/* =================================================
-              KHÔNG CÓ CUỘC HỌP
-          ================================================== */}
+          {/* KHÔNG CÓ CUỘC HỌP */}
 
           {!loading &&
             meetings.length === 0 && (
@@ -1088,9 +1010,7 @@ export default function DaiBieuPage() {
 
             )}
 
-          {/* =================================================
-              DANH SÁCH CUỘC HỌP
-          ================================================== */}
+          {/* DANH SÁCH CUỘC HỌP */}
 
           {!loading &&
             meetings.length > 0 && (
@@ -1108,10 +1028,6 @@ export default function DaiBieuPage() {
                     >
 
                       <div className="flex items-center gap-3 sm:gap-4">
-
-                        {/* =================================================
-                            NGÀY
-                        ================================================== */}
 
                         <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:h-16 sm:w-20">
 
@@ -1143,15 +1059,7 @@ export default function DaiBieuPage() {
 
                         </div>
 
-                        {/* =================================================
-                            NỘI DUNG
-                        ================================================== */}
-
                         <div className="min-w-0 flex-1">
-
-                          {/* =================================================
-                              NGÀY + TÊN CUỘC HỌP CÙNG MỘT HÀNG
-                          ================================================== */}
 
                           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
 
@@ -1185,10 +1093,6 @@ export default function DaiBieuPage() {
 
                           </div>
 
-                          {/* =================================================
-                              GIỜ + ĐỊA ĐIỂM
-                          ================================================== */}
-
                           <div className="mt-1.5 flex min-w-0 items-center gap-x-3 text-[10px] text-slate-500 sm:gap-x-5 sm:text-xs">
 
                             <span className="shrink-0">
@@ -1217,10 +1121,6 @@ export default function DaiBieuPage() {
 
                           </div>
 
-                          {/* =================================================
-                              TRẠNG THÁI THAM DỰ
-                          ================================================== */}
-
                           <div className="mt-1.5">
 
                             <span
@@ -1237,14 +1137,8 @@ export default function DaiBieuPage() {
 
                         </div>
 
-                        {/* =================================================
-                            MŨI TÊN
-                        ================================================== */}
-
                         <div className="shrink-0 text-base text-slate-300 transition group-hover:text-emerald-600 sm:text-lg">
-
                           →
-
                         </div>
 
                       </div>
