@@ -502,6 +502,12 @@ export default function DaiBieuPage() {
 
   const totalMeetings = meetings.length;
 
+const activeMeetingCount =
+  meetings.filter(
+    (meeting) =>
+      !isMeetingEnded(meeting)
+  ).length;
+
   const unconfirmedMeetings =
     meetings.filter(
       (meeting) =>
@@ -930,8 +936,8 @@ export default function DaiBieuPage() {
 
 
               <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
-                {totalMeetings}
-              </span>
+  {activeMeetingCount}
+</span>
 
 
               <span className="shrink-0 text-slate-300 transition group-hover:text-emerald-600">
