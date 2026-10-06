@@ -273,17 +273,14 @@ export default function DaiBieuPage() {
        * 3. LẤY CÁC CUỘC HỌP ĐƯỢC MỜI
        * =======================================================
        */
+
       const {
         data: { user: authUser },
         error: authError,
       } = await supabase.auth.getUser();
-      
+
       console.log("AUTH USER:", authUser?.id);
       console.log("AUTH ERROR:", authError);
-
-
-
-      
 
       const {
         data: participantData,
@@ -408,60 +405,86 @@ export default function DaiBieuPage() {
 
       /*
        * =======================================================
-       * 7. CHỈ HIỂN THỊ CUỘC HỌP CHƯA KẾT THÚC
+       * 7. CHỈ HIỂN THỊ CUỘC HỌP TRONG 7 NGÀY SAU KHI KẾT THÚC
        * =======================================================
+       *
+       * - Cuộc họp chưa diễn ra: vẫn hiển thị.
+       * - Cuộc họp đang diễn ra: vẫn hiển thị.
+       * - Cuộc họp đã kết thúc: tiếp tục hiển thị 7 ngày.
+       * - Quá 7 ngày kể từ khi kết thúc: ẩn khỏi trang chủ.
+       *
+       * Lưu ý:
+       * Trang chi tiết [id]/page.tsx không thay đổi.
        */
 
       const now = new Date();
 
-      const upcomingMeetings =
+      const visibleMeetings =
         result.filter((meeting) => {
           if (!meeting.meeting_date) {
             return true;
           }
 
+          let meetingEndDateTime: Date;
+
           /*
            * Có giờ kết thúc:
-           * Chỉ ẩn sau khi cuộc họp kết thúc.
+           * Lấy đúng thời điểm kết thúc cuộc họp.
            */
 
           if (meeting.end_time) {
-            const endDateTime =
+            meetingEndDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.end_time}`
               );
-
-            return endDateTime >= now;
           }
 
           /*
-           * Không có giờ kết thúc:
-           * Dùng giờ bắt đầu.
+           * Không có giờ kết thúc nhưng có giờ bắt đầu:
+           * Giữ nguyên cách xác định thời điểm của code cũ:
+           * dùng giờ bắt đầu.
            */
 
-          if (meeting.start_time) {
-            const startDateTime =
+          else if (meeting.start_time) {
+            meetingEndDateTime =
               new Date(
                 `${meeting.meeting_date}T${meeting.start_time}`
               );
-
-            return startDateTime >= now;
           }
 
           /*
            * Có ngày nhưng không có giờ:
-           * Hiển thị hết ngày đó.
+           * Xem hết ngày đó là thời điểm kết thúc.
            */
 
-          const meetingDate =
+          else {
+            meetingEndDateTime =
+              new Date(
+                `${meeting.meeting_date}T23:59:59`
+              );
+          }
+
+          /*
+           * Cộng thêm 7 ngày kể từ thời điểm kết thúc.
+           */
+
+          const visibleUntil =
             new Date(
-              `${meeting.meeting_date}T23:59:59`
+              meetingEndDateTime
             );
 
-          return meetingDate >= now;
+          visibleUntil.setDate(
+            visibleUntil.getDate() + 7
+          );
+
+          /*
+           * Chỉ ẩn khi đã quá 7 ngày.
+           */
+
+          return visibleUntil >= now;
         });
 
-      setMeetings(upcomingMeetings);
+      setMeetings(visibleMeetings);
     } catch (error) {
       console.error(error);
 
@@ -684,7 +707,7 @@ export default function DaiBieuPage() {
 
           {/* -------------------------------------------------
               DESKTOP
-              
+
               Giữ nguyên cách hiển thị hiện tại.
               Không có thông báo nhiệm vụ ở desktop.
           -------------------------------------------------- */}
@@ -696,7 +719,7 @@ export default function DaiBieuPage() {
 
           {/* -------------------------------------------------
               MOBILE / IPAD DỌC
-              
+
               Ngày bên trái.
               Thông báo nhiệm vụ bên phải.
           -------------------------------------------------- */}
