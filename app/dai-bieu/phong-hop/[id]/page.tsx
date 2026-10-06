@@ -15,6 +15,7 @@ type Meeting = {
   status: string | null;
   meeting_date: string | null;
   start_time: string | null;
+  end_time: string | null;
 };
 
 type Participant = {
@@ -100,9 +101,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
   /*
    * ID thật trong database.
-   *
-   * Sau khi tìm được cuộc họp theo số thứ tự,
-   * biến này sẽ chứa meetings.id thật.
    */
   const [meetingId, setMeetingId] =
     useState<number | null>(null);
@@ -207,6 +205,73 @@ export default function DaiBieuPhongHopChiTietPage() {
     useState<number | null>(null);
 
   /* =========================================================
+     XÁC ĐỊNH CUỘC HỌP ĐÃ KẾT THÚC
+  ========================================================= */
+
+  function isMeetingEnded(
+    targetMeeting: Meeting
+  ) {
+    /*
+     * Nếu Quản trị đã bấm "Đã kết thúc"
+     * thì xác định ngay là đã kết thúc.
+     */
+    if (
+      targetMeeting.status ===
+      "Đã kết thúc"
+    ) {
+      return true;
+    }
+
+    /*
+     * Không có ngày thì không đủ dữ liệu
+     * để xác định đã kết thúc.
+     */
+    if (!targetMeeting.meeting_date) {
+      return false;
+    }
+
+    /*
+     * Có giờ kết thúc.
+     */
+    if (targetMeeting.end_time) {
+      const endDateTime =
+        new Date(
+          `${targetMeeting.meeting_date}T${targetMeeting.end_time}`
+        );
+
+      return (
+        endDateTime < new Date()
+      );
+    }
+
+    /*
+     * Không có giờ kết thúc nhưng có giờ bắt đầu.
+     */
+    if (targetMeeting.start_time) {
+      const startDateTime =
+        new Date(
+          `${targetMeeting.meeting_date}T${targetMeeting.start_time}`
+        );
+
+      return (
+        startDateTime < new Date()
+      );
+    }
+
+    /*
+     * Không có giờ thì lấy hết ngày.
+     */
+    const meetingDate =
+      new Date(
+        `${targetMeeting.meeting_date}T23:59:59`
+      );
+
+    return (
+      meetingDate < new Date()
+    );
+  }
+
+  /* =========================================================
      LOAD PAGE
   ========================================================= */
 
@@ -272,7 +337,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         2. LẤY TOÀN BỘ CUỘC HỌP ĐỂ XÁC ĐỊNH SỐ THỨ TỰ
+         2. LẤY TOÀN BỘ CUỘC HỌP
       ===================================================== */
 
       const {
@@ -285,7 +350,8 @@ export default function DaiBieuPhongHopChiTietPage() {
           title,
           status,
           meeting_date,
-          start_time
+          start_time,
+          end_time
         `);
 
       if (
@@ -308,13 +374,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
       /* =====================================================
          3. SẮP XẾP THỨ TỰ CUỘC HỌP
-         
-         Cùng nguyên tắc với trang quản trị:
-
-         - Cuộc họp chưa kết thúc trước
-         - Ngày mới trước
-         - Giờ mới trước
-         - ID lớn trước nếu trùng
       ===================================================== */
 
       const sortedMeetings =
@@ -385,14 +444,11 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /*
-       * Đây mới là ID thật trong database.
+       * Đây là ID thật trong database.
        */
       const resolvedMeetingId =
         selectedMeeting.id;
 
-      /*
-       * Lưu lại để các hàm phía dưới sử dụng.
-       */
       setMeetingId(
         resolvedMeetingId
       );
@@ -636,10 +692,6 @@ export default function DaiBieuPhongHopChiTietPage() {
     setLoadingVote(true);
 
     try {
-      /* =====================================================
-         1. LẤY BIỂU QUYẾT ĐANG MỞ HOẶC ĐÃ KẾT THÚC
-      ===================================================== */
-
       const {
         data: voteDataList,
         error: voteError,
@@ -679,11 +731,6 @@ export default function DaiBieuPhongHopChiTietPage() {
         return;
       }
 
-      console.log(
-        "BIỂU QUYẾT CỦA CUỘC HỌP:",
-        voteDataList
-      );
-
       if (
         !voteDataList ||
         voteDataList.length === 0
@@ -694,10 +741,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
         return;
       }
-
-      /* =====================================================
-         2. LẤY DANH SÁCH BIỂU QUYẾT ĐẠI BIỂU ĐƯỢC NHẬN
-      ===================================================== */
 
       const voteIds =
         voteDataList.map(
@@ -736,15 +779,6 @@ export default function DaiBieuPhongHopChiTietPage() {
         return;
       }
 
-      console.log(
-        "ĐẠI BIỂU ĐƯỢC NHẬN PHIẾU:",
-        voteParticipantData
-      );
-
-      /* =====================================================
-         3. LỌC CÁC BIỂU QUYẾT ĐƯỢC NHẬN
-      ===================================================== */
-
       const allowedVoteIds =
         (
           voteParticipantData || []
@@ -760,11 +794,6 @@ export default function DaiBieuPhongHopChiTietPage() {
             )
         );
 
-      console.log(
-        "BIỂU QUYẾT ĐẠI BIỂU ĐƯỢC THAM GIA:",
-        availableVotes
-      );
-
       if (
         availableVotes.length === 0
       ) {
@@ -775,10 +804,6 @@ export default function DaiBieuPhongHopChiTietPage() {
         return;
       }
 
-      /* =====================================================
-         4. CHỌN BIỂU QUYẾT MỚI NHẤT
-      ===================================================== */
-
       const voteData =
         availableVotes[0] as MeetingVote;
 
@@ -786,15 +811,10 @@ export default function DaiBieuPhongHopChiTietPage() {
         voteData
       );
 
-      console.log(
-        "BIỂU QUYẾT ĐANG HIỂN THỊ:",
-        voteData
-      );
-
-      /* =====================================================
-         5. NẾU CHƯA XÁC NHẬN THAM DỰ
-      ===================================================== */
-
+      /*
+       * Nếu chưa xác nhận tham dự thì
+       * không cho thao tác biểu quyết.
+       */
       if (
         attendanceStatus !==
         "Đã xác nhận tham dự"
@@ -804,10 +824,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
         return;
       }
-
-      /* =====================================================
-         6. TÌM PHIẾU ĐÃ BỎ
-      ===================================================== */
 
       const {
         data: voteItemData,
@@ -843,15 +859,6 @@ export default function DaiBieuPhongHopChiTietPage() {
         return;
       }
 
-      console.log(
-        "PHIẾU CỦA ĐẠI BIỂU:",
-        voteItemData
-      );
-
-      /* =====================================================
-         7. ĐÃ CÓ PHIẾU
-      ===================================================== */
-
       if (voteItemData) {
         const currentVoteItem =
           voteItemData as MeetingVoteItem;
@@ -872,18 +879,9 @@ export default function DaiBieuPhongHopChiTietPage() {
         } else {
           setVoteChoice(null);
         }
-
-        console.log(
-          "ĐÃ TÌM THẤY PHIẾU ĐÃ BỎ:",
-          currentVoteItem
-        );
       } else {
         setMyVote(null);
         setVoteChoice(null);
-
-        console.log(
-          "ĐẠI BIỂU CHƯA BỎ PHIẾU"
-        );
       }
 
     } catch (err) {
@@ -906,6 +904,16 @@ export default function DaiBieuPhongHopChiTietPage() {
   ========================================================= */
 
   async function confirmAttendance() {
+    /*
+     * KHÓA HOÀN TOÀN KHI CUỘC HỌP ĐÃ KẾT THÚC.
+     */
+    if (
+      meeting &&
+      isMeetingEnded(meeting)
+    ) {
+      return;
+    }
+
     if (
       !participant ||
       !attendanceChoice
@@ -982,10 +990,6 @@ export default function DaiBieuPhongHopChiTietPage() {
       updatedParticipant
     );
 
-    /*
-     * meetingId ở đây là ID thật của DB,
-     * không phải số thứ tự trên URL.
-     */
     if (meetingId) {
       await loadActiveVote(
         meetingId,
@@ -1068,6 +1072,17 @@ export default function DaiBieuPhongHopChiTietPage() {
   async function downloadDocument(
     doc: MeetingDocument
   ) {
+    /*
+     * CUỘC HỌP ĐÃ KẾT THÚC:
+     * KHÔNG ĐƯỢC TẢI TÀI LIỆU.
+     */
+    if (
+      meeting &&
+      isMeetingEnded(meeting)
+    ) {
+      return;
+    }
+
     if (!doc.file_path) {
       setError(
         "Tài liệu chưa có đường dẫn tệp."
@@ -1147,6 +1162,16 @@ export default function DaiBieuPhongHopChiTietPage() {
   ========================================================= */
 
   async function registerSpeaking() {
+    /*
+     * KHÓA KHI CUỘC HỌP ĐÃ KẾT THÚC.
+     */
+    if (
+      meeting &&
+      isMeetingEnded(meeting)
+    ) {
+      return;
+    }
+
     if (
       !participant ||
       !meeting
@@ -1445,16 +1470,26 @@ export default function DaiBieuPhongHopChiTietPage() {
       | "Đồng ý"
       | "Không đồng ý"
   ) {
+    /*
+     * KHÓA HOÀN TOÀN KHI CUỘC HỌP ĐÃ KẾT THÚC.
+     */
+    if (
+      meeting &&
+      isMeetingEnded(meeting)
+    ) {
+      setError(
+        "Cuộc họp đã kết thúc, không thể thực hiện biểu quyết."
+      );
+
+      return;
+    }
+
     if (
       !participant ||
       !activeVote
     ) {
       return;
     }
-
-    /* =====================================================
-       1. CHỈ ĐƯỢC BIỂU QUYẾT KHI ĐANG BIỂU QUYẾT
-    ===================================================== */
 
     if (
       activeVote.status !==
@@ -1466,10 +1501,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
       return;
     }
-
-    /* =====================================================
-       2. PHẢI ĐÃ XÁC NHẬN THAM DỰ
-    ===================================================== */
 
     if (
       participant.attendance_status !==
@@ -1490,7 +1521,7 @@ export default function DaiBieuPhongHopChiTietPage() {
 
     try {
       /* =====================================================
-         3. ĐÃ CÓ PHIẾU TRONG STATE → UPDATE
+         ĐÃ CÓ PHIẾU → UPDATE
       ===================================================== */
 
       if (myVote) {
@@ -1555,7 +1586,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         4. KIỂM TRA DATABASE TRƯỚC KHI INSERT
+         KIỂM TRA DATABASE TRƯỚC KHI INSERT
       ===================================================== */
 
       const {
@@ -1582,7 +1613,7 @@ export default function DaiBieuPhongHopChiTietPage() {
 
       if (existingVoteError) {
         console.error(
-          "LỖI KIỂM TRA PHIẾU TRƯỚC KHI INSERT:",
+          "LỖI KIỂM TRA PHIẾU:",
           existingVoteError
         );
 
@@ -1597,7 +1628,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         5. PHIẾU ĐÃ TỒN TẠI → UPDATE
+         PHIẾU ĐÃ TỒN TẠI → UPDATE
       ===================================================== */
 
       if (existingVote) {
@@ -1654,7 +1685,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         6. CHƯA CÓ PHIẾU → INSERT
+         CHƯA CÓ PHIẾU → INSERT
       ===================================================== */
 
       const {
@@ -1685,28 +1716,9 @@ export default function DaiBieuPhongHopChiTietPage() {
 
       if (insertError) {
         console.error(
-          "LỖI INSERT PHIẾU BIỂU QUYẾT:",
-          {
-            message:
-              insertError.message,
-
-            details:
-              insertError.details,
-
-            hint:
-              insertError.hint,
-
-            code:
-              insertError.code,
-          }
+          "LỖI INSERT PHIẾU:",
+          insertError
         );
-
-        /* ===================================================
-           THỬ ĐỌC LẠI PHIẾU
-
-           Nếu request khác vừa tạo phiếu,
-           chuyển sang UPDATE.
-        =================================================== */
 
         const {
           data: retryExistingVote,
@@ -1798,10 +1810,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
         return;
       }
-
-      /* =====================================================
-         7. INSERT THÀNH CÔNG
-      ===================================================== */
 
       if (insertedVote) {
         setMyVote(
@@ -1911,6 +1919,13 @@ export default function DaiBieuPhongHopChiTietPage() {
   }
 
   /* =========================================================
+     TRẠNG THÁI CUỘC HỌP
+  ========================================================= */
+
+  const meetingEnded =
+    isMeetingEnded(meeting);
+
+  /* =========================================================
      RENDER
   ========================================================= */
 
@@ -1927,10 +1942,6 @@ export default function DaiBieuPhongHopChiTietPage() {
 
           <div className="flex items-center justify-between gap-5">
 
-            {/* =================================================
-                TÊN HỆ THỐNG
-            ================================================= */}
-
             <div className="flex items-center gap-3">
 
               <div>
@@ -1946,10 +1957,6 @@ export default function DaiBieuPhongHopChiTietPage() {
               </div>
 
             </div>
-
-            {/* =================================================
-                XIN CHÀO + ICON
-            ================================================= */}
 
             <Link
               href="/dai-bieu/tai-khoan"
@@ -1982,7 +1989,7 @@ export default function DaiBieuPhongHopChiTietPage() {
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
+                    d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 15 0"
                   />
 
                 </svg>
@@ -2002,6 +2009,24 @@ export default function DaiBieuPhongHopChiTietPage() {
       ===================================================== */}
 
       <div className="mx-auto max-w-5xl px-5 py-2">
+
+        {/* ===================================================
+            THÔNG BÁO CUỘC HỌP ĐÃ KẾT THÚC
+        =================================================== */}
+
+        {meetingEnded && (
+
+          <div className="mt-3 border-l-4 border-slate-400 bg-slate-100 px-4 py-3 text-sm text-slate-600">
+
+            <strong>
+              Cuộc họp đã kết thúc.
+            </strong>{" "}
+
+            Đại biểu chỉ có thể xem thông tin và tài liệu của cuộc họp.
+
+          </div>
+
+        )}
 
         {/* ===================================================
             TÀI LIỆU
@@ -2072,6 +2097,8 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                           <div className="flex shrink-0 items-center gap-2">
 
+                            {/* LUÔN CHO XEM */}
+
                             <button
                               type="button"
                               disabled={
@@ -2091,24 +2118,30 @@ export default function DaiBieuPhongHopChiTietPage() {
                                 : "👁 Xem"}
                             </button>
 
-                            <button
-                              type="button"
-                              disabled={
-                                downloadingDocumentId ===
+                            {/* CHỈ ĐƯỢC TẢI KHI CUỘC HỌP CHƯA KẾT THÚC */}
+
+                            {!meetingEnded && (
+
+                              <button
+                                type="button"
+                                disabled={
+                                  downloadingDocumentId ===
+                                  doc.id
+                                }
+                                onClick={() =>
+                                  downloadDocument(
+                                    doc
+                                  )
+                                }
+                                className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {downloadingDocumentId ===
                                 doc.id
-                              }
-                              onClick={() =>
-                                downloadDocument(
-                                  doc
-                                )
-                              }
-                              className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {downloadingDocumentId ===
-                              doc.id
-                                ? "Đang tải..."
-                                : "↓ Tải về"}
-                            </button>
+                                  ? "Đang tải..."
+                                  : "↓ Tải về"}
+                              </button>
+
+                            )}
 
                           </div>
 
@@ -2148,104 +2181,118 @@ export default function DaiBieuPhongHopChiTietPage() {
               </h2>
 
               <p className="mt-0.5 text-xs text-slate-500">
-                Vui lòng lựa chọn tình trạng tham dự cuộc họp.
+                {meetingEnded
+                  ? "Thông tin xác nhận tham dự của đại biểu."
+                  : "Vui lòng lựa chọn tình trạng tham dự cuộc họp."}
               </p>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              {/* CHỈ CHO THAO TÁC KHI CUỘC HỌP CHƯA KẾT THÚC */}
 
-                <button
-                  type="button"
-                  disabled={
-                    savingAttendance
-                  }
-                  onClick={() =>
-                    setAttendanceChoice(
-                      "Đã xác nhận tham dự"
-                    )
-                  }
-                  className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
-                    attendanceChoice ===
-                    "Đã xác nhận tham dự"
-                      ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  }`}
-                >
-                  ✓ Tham dự
-                </button>
+              {!meetingEnded && (
 
-                <button
-                  type="button"
-                  disabled={
-                    savingAttendance
-                  }
-                  onClick={() =>
-                    setAttendanceChoice(
-                      "Không tham dự"
-                    )
-                  }
-                  className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
-                    attendanceChoice ===
-                    "Không tham dự"
-                      ? "border-slate-500 bg-slate-500 text-white"
-                      : "border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  Không tham dự
-                </button>
+                <>
 
-              </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
 
-              {attendanceChoice ===
-                "Không tham dự" && (
+                    <button
+                      type="button"
+                      disabled={
+                        savingAttendance
+                      }
+                      onClick={() =>
+                        setAttendanceChoice(
+                          "Đã xác nhận tham dự"
+                        )
+                      }
+                      className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
+                        attendanceChoice ===
+                        "Đã xác nhận tham dự"
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      }`}
+                    >
+                      ✓ Tham dự
+                    </button>
 
-                <div className="mt-4 max-w-2xl">
+                    <button
+                      type="button"
+                      disabled={
+                        savingAttendance
+                      }
+                      onClick={() =>
+                        setAttendanceChoice(
+                          "Không tham dự"
+                        )
+                      }
+                      className={`rounded-md border px-4 py-2 text-sm font-semibold transition ${
+                        attendanceChoice ===
+                        "Không tham dự"
+                          ? "border-slate-500 bg-slate-500 text-white"
+                          : "border-slate-300 bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      Không tham dự
+                    </button>
 
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-                    Lý do không tham dự
-                  </label>
+                  </div>
 
-                  <textarea
-                    value={
-                      absenceReason
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setAbsenceReason(
-                        event.target.value
-                      )
-                    }
-                    rows={3}
-                    placeholder="Nhập lý do không tham dự..."
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
-                  />
+                  {attendanceChoice ===
+                    "Không tham dự" && (
 
-                </div>
+                    <div className="mt-4 max-w-2xl">
+
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-600">
+                        Lý do không tham dự
+                      </label>
+
+                      <textarea
+                        value={
+                          absenceReason
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setAbsenceReason(
+                            event.target.value
+                          )
+                        }
+                        rows={3}
+                        placeholder="Nhập lý do không tham dự..."
+                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-200"
+                      />
+
+                    </div>
+
+                  )}
+
+                  {attendanceChoice && (
+
+                    <div className="mt-3">
+
+                      <button
+                        type="button"
+                        disabled={
+                          savingAttendance
+                        }
+                        onClick={
+                          confirmAttendance
+                        }
+                        className="rounded-md border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {savingAttendance
+                          ? "Đang cập nhật..."
+                          : "Xác nhận"}
+                      </button>
+
+                    </div>
+
+                  )}
+
+                </>
 
               )}
 
-              {attendanceChoice && (
-
-                <div className="mt-3">
-
-                  <button
-                    type="button"
-                    disabled={
-                      savingAttendance
-                    }
-                    onClick={
-                      confirmAttendance
-                    }
-                    className="rounded-md border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-semibold text-orange-600 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {savingAttendance
-                      ? "Đang cập nhật..."
-                      : "Xác nhận"}
-                  </button>
-
-                </div>
-
-              )}
+              {/* ĐÃ XÁC NHẬN THAM DỰ */}
 
               {participant.attendance_status ===
                 "Đã xác nhận tham dự" && (
@@ -2270,6 +2317,8 @@ export default function DaiBieuPhongHopChiTietPage() {
                 </div>
 
               )}
+
+              {/* KHÔNG THAM DỰ */}
 
               {participant.attendance_status ===
                 "Không tham dự" && (
@@ -2346,16 +2395,22 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={
-                        refreshVote
-                      }
-                      disabled={loadingVote}
-                      className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      ↻ Cập nhật
-                    </button>
+                    {/* CHỈ CẬP NHẬT KHI CUỘC HỌP CHƯA KẾT THÚC */}
+
+                    {!meetingEnded && (
+
+                      <button
+                        type="button"
+                        onClick={
+                          refreshVote
+                        }
+                        disabled={loadingVote}
+                        className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        ↻ Cập nhật
+                      </button>
+
+                    )}
 
                   </div>
 
@@ -2416,8 +2471,11 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                     )}
 
-                    {activeVote.status ===
-                      "Đang biểu quyết" &&
+                    {/* CHỈ BIỂU QUYẾT KHI CUỘC HỌP CHƯA KẾT THÚC */}
+
+                    {!meetingEnded &&
+                      activeVote.status ===
+                        "Đang biểu quyết" &&
                       participant.attendance_status ===
                         "Đã xác nhận tham dự" && (
 
@@ -2559,8 +2617,46 @@ export default function DaiBieuPhongHopChiTietPage() {
 
                     )}
 
-                    {activeVote.status ===
-                      "Đã kết thúc" && (
+                    {/* KHI CUỘC HỌP ĐÃ KẾT THÚC */}
+
+                    {meetingEnded && (
+
+                      <div className="mt-5 border-l-4 border-slate-400 bg-slate-100 px-4 py-3">
+
+                        <p className="text-sm font-medium text-slate-700">
+                          Cuộc họp đã kết thúc. Biểu quyết không còn hiệu lực thao tác.
+                        </p>
+
+                        {myVote &&
+                        myVote.choice ? (
+
+                          <p className="mt-2 text-sm text-slate-600">
+
+                            Bạn đã biểu quyết:{" "}
+
+                            <strong className="text-slate-800">
+                              {myVote.choice}
+                            </strong>
+
+                          </p>
+
+                        ) : (
+
+                          <p className="mt-2 text-xs text-slate-500">
+                            Bạn chưa thực hiện biểu quyết trước khi cuộc họp kết thúc.
+                          </p>
+
+                        )}
+
+                      </div>
+
+                    )}
+
+                    {/* BIỂU QUYẾT ĐÃ KẾT THÚC NHƯNG CUỘC HỌP CHƯA KẾT THÚC */}
+
+                    {!meetingEnded &&
+                      activeVote.status ===
+                        "Đã kết thúc" && (
 
                       <div className="mt-5 border-l-4 border-slate-400 bg-slate-100 px-4 py-3">
 
@@ -2634,12 +2730,17 @@ export default function DaiBieuPhongHopChiTietPage() {
                   </h2>
 
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Gửi một lần cho toàn bộ cuộc họp bằng nội dung hoặc file góp ý.
+                    {meetingEnded
+                      ? "Nội dung góp ý / phát biểu đã gửi."
+                      : "Gửi một lần cho toàn bộ cuộc họp bằng nội dung hoặc file góp ý."}
                   </p>
 
                 </div>
 
-                {!showSpeakingForm && (
+                {/* KHÔNG CHO GỬI/SỬA KHI ĐÃ KẾT THÚC */}
+
+                {!showSpeakingForm &&
+                  !meetingEnded && (
 
                   <button
                     type="button"
@@ -2659,7 +2760,10 @@ export default function DaiBieuPhongHopChiTietPage() {
 
               </div>
 
-              {showSpeakingForm && (
+              {/* FORM CHỈ HIỆN KHI CUỘC HỌP CHƯA KẾT THÚC */}
+
+              {showSpeakingForm &&
+                !meetingEnded && (
 
                 <div className="mt-4 max-w-3xl">
 
@@ -2755,6 +2859,8 @@ export default function DaiBieuPhongHopChiTietPage() {
                 </div>
 
               )}
+
+              {/* GÓP Ý ĐÃ GỬI VẪN ĐƯỢC XEM */}
 
               {registrations.length >
                 0 && (
