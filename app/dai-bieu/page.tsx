@@ -11,6 +11,7 @@ type Meeting = {
   start_time: string | null;
   end_time: string | null;
   location: string | null;
+  status: string | null;
   attendance_status: string | null;
 };
 
@@ -342,7 +343,7 @@ export default function DaiBieuPage() {
       } = await supabase
         .from("meetings")
         .select(
-          "id, title, meeting_date, start_time, end_time, location"
+          "id, title, meeting_date, start_time, end_time, location, status"
         )
         .in("id", meetingIds)
         .order("meeting_date", {
@@ -405,15 +406,16 @@ export default function DaiBieuPage() {
 
       /*
        * =======================================================
-       * 7. CHỈ HIỂN THỊ CUỘC HỌP TRONG 7 NGÀY SAU KHI KẾT THÚC
+       * 7. HIỂN THỊ CUỘC HỌP ĐÃ KẾT THÚC TRONG 7 NGÀY
        * =======================================================
        *
        * - Cuộc họp chưa diễn ra: vẫn hiển thị.
        * - Cuộc họp đang diễn ra: vẫn hiển thị.
-       * - Cuộc họp đã kết thúc: tiếp tục hiển thị 7 ngày.
-       * - Quá 7 ngày kể từ khi kết thúc: ẩn khỏi trang chủ.
+       * - Admin đã bấm "Đã kết thúc": vẫn hiển thị 7 ngày.
+       * - Đã quá end_time: vẫn hiển thị 7 ngày.
+       * - Quá 7 ngày kể từ thời điểm kết thúc: ẩn.
        *
-       * Lưu ý:
+       * Trạng thái "Đã kết thúc" lấy từ meetings.status.
        * Trang chi tiết [id]/page.tsx không thay đổi.
        */
 
@@ -441,8 +443,7 @@ export default function DaiBieuPage() {
 
           /*
            * Không có giờ kết thúc nhưng có giờ bắt đầu:
-           * Giữ nguyên cách xác định thời điểm của code cũ:
-           * dùng giờ bắt đầu.
+           * Dùng giờ bắt đầu làm mốc thời gian.
            */
 
           else if (meeting.start_time) {
@@ -570,6 +571,72 @@ export default function DaiBieuPage() {
     }
 
     return time.slice(0, 5);
+  }
+
+  /* =========================================================
+     XÁC ĐỊNH CUỘC HỌP ĐÃ KẾT THÚC
+  ========================================================= */
+
+  function isMeetingEnded(
+    meeting: Meeting
+  ) {
+    /*
+     * Admin đã bấm "Đã kết thúc"
+     */
+
+    if (
+      meeting.status ===
+      "Đã kết thúc"
+    ) {
+      return true;
+    }
+
+    /*
+     * Nếu chưa có ngày thì không thể xác định
+     */
+
+    if (!meeting.meeting_date) {
+      return false;
+    }
+
+    /*
+     * Nếu có giờ kết thúc thì kiểm tra quá giờ.
+     */
+
+    if (meeting.end_time) {
+      const endDateTime =
+        new Date(
+          `${meeting.meeting_date}T${meeting.end_time}`
+        );
+
+      return endDateTime < new Date();
+    }
+
+    /*
+     * Nếu không có giờ kết thúc nhưng có giờ bắt đầu,
+     * dùng giờ bắt đầu làm mốc.
+     */
+
+    if (meeting.start_time) {
+      const startDateTime =
+        new Date(
+          `${meeting.meeting_date}T${meeting.start_time}`
+        );
+
+      return startDateTime < new Date();
+    }
+
+    /*
+     * Nếu chỉ có ngày,
+     * sau 23:59:59 của ngày đó xem là kết thúc.
+     */
+
+    const meetingDate =
+      new Date(
+        `${meeting.meeting_date}T23:59:59`
+      );
+
+    return meetingDate < new Date();
   }
 
   /* =========================================================
@@ -1067,65 +1134,39 @@ export default function DaiBieuPage() {
 
                 {meetings
                   .slice(0, 5)
-                  .map((meeting) => (
+                  .map((meeting) => {
 
-                    <Link
-                      key={meeting.id}
-                      href={`/dai-bieu/phong-hop/${meeting.id}`}
-                      className="group block rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md sm:p-4"
-                    >
+                    const meetingEnded =
+                      isMeetingEnded(
+                        meeting
+                      );
 
-                      <div className="flex items-center gap-3 sm:gap-4">
+                    return (
+                      <Link
+                        key={meeting.id}
+                        href={`/dai-bieu/phong-hop/${meeting.id}`}
+                        className={
+                          meetingEnded
+                            ? "group block cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-3 opacity-65 shadow-sm sm:p-4"
+                            : "group block rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md sm:p-4"
+                        }
+                      >
 
-                        {/* =================================================
-                            NGÀY
-                        ================================================== */}
-
-                        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:h-16 sm:w-20">
-
-                          <span className="text-[10px] font-medium sm:text-xs">
-
-                            {meeting.meeting_date
-                              ? new Date(
-                                  `${meeting.meeting_date}T00:00:00`
-                                ).toLocaleDateString(
-                                  "vi-VN",
-                                  {
-                                    weekday:
-                                      "short",
-                                  }
-                                )
-                              : ""}
-
-                          </span>
-
-
-                          <span className="text-lg font-bold sm:text-xl">
-
-                            {meeting.meeting_date
-                              ? new Date(
-                                  `${meeting.meeting_date}T00:00:00`
-                                ).getDate()
-                              : "--"}
-
-                          </span>
-
-                        </div>
-
-
-                        {/* =================================================
-                            NỘI DUNG
-                        ================================================== */}
-
-                        <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-3 sm:gap-4">
 
                           {/* =================================================
-                              NGÀY + TÊN CUỘC HỌP CÙNG MỘT HÀNG
+                              NGÀY
                           ================================================== */}
 
-                          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+                          <div
+                            className={
+                              meetingEnded
+                                ? "flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-200 text-slate-500 sm:h-16 sm:w-20"
+                                : "flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 sm:h-16 sm:w-20"
+                            }
+                          >
 
-                            <p className="shrink-0 text-[10px] font-medium text-emerald-700 sm:text-xs">
+                            <span className="text-[10px] font-medium sm:text-xs">
 
                               {meeting.meeting_date
                                 ? new Date(
@@ -1133,59 +1174,22 @@ export default function DaiBieuPage() {
                                   ).toLocaleDateString(
                                     "vi-VN",
                                     {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
+                                      weekday:
+                                        "short",
                                     }
                                   )
-                                : "Chưa xác định"}
-
-                            </p>
-
-
-                            <span className="shrink-0 text-slate-300">
-                              •
-                            </span>
-
-
-                            <h4
-                              className="min-w-0 truncate text-sm font-semibold text-slate-900 group-hover:text-emerald-700 sm:text-base"
-                              title={meeting.title}
-                            >
-                              {meeting.title}
-                            </h4>
-
-                          </div>
-
-
-                          {/* =================================================
-                              GIỜ + ĐỊA ĐIỂM
-                          ================================================== */}
-
-                          <div className="mt-1.5 flex min-w-0 items-center gap-x-3 text-[10px] text-slate-500 sm:gap-x-5 sm:text-xs">
-
-                            <span className="shrink-0">
-
-                              🕐{" "}
-
-                              {formatTime(
-                                meeting.start_time
-                              )}
-
-                              {meeting.end_time &&
-                                ` – ${formatTime(
-                                  meeting.end_time
-                                )}`}
+                                : ""}
 
                             </span>
 
 
-                            <span className="min-w-0 truncate">
+                            <span className="text-lg font-bold sm:text-xl">
 
-                              📍{" "}
-
-                              {meeting.location ||
-                                "Chưa cập nhật địa điểm"}
+                              {meeting.meeting_date
+                                ? new Date(
+                                    `${meeting.meeting_date}T00:00:00`
+                                  ).getDate()
+                                : "--"}
 
                             </span>
 
@@ -1193,41 +1197,140 @@ export default function DaiBieuPage() {
 
 
                           {/* =================================================
-                              TRẠNG THÁI THAM DỰ
+                              NỘI DUNG
                           ================================================== */}
 
-                          <div className="mt-1.5">
+                          <div className="min-w-0 flex-1">
 
-                            <span
-                              className={`inline-flex rounded-md border px-2 py-1 text-[10px] font-medium sm:text-xs ${getAttendanceClass(
-                                meeting.attendance_status
-                              )}`}
-                            >
-                              {getAttendanceLabel(
-                                meeting.attendance_status
-                              )}
-                            </span>
+                            {/* =================================================
+                                NGÀY + TÊN CUỘC HỌP CÙNG MỘT HÀNG
+                            ================================================== */}
 
+                            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+
+                              <p
+                                className={
+                                  meetingEnded
+                                    ? "shrink-0 text-[10px] font-medium text-slate-400 sm:text-xs"
+                                    : "shrink-0 text-[10px] font-medium text-emerald-700 sm:text-xs"
+                                }
+                              >
+
+                                {meeting.meeting_date
+                                  ? new Date(
+                                      `${meeting.meeting_date}T00:00:00`
+                                    ).toLocaleDateString(
+                                      "vi-VN",
+                                      {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      }
+                                    )
+                                  : "Chưa xác định"}
+
+                              </p>
+
+
+                              <span className="shrink-0 text-slate-300">
+                                •
+                              </span>
+
+
+                              <h4
+                                className={
+                                  meetingEnded
+                                    ? "min-w-0 truncate text-sm font-semibold text-slate-500 sm:text-base"
+                                    : "min-w-0 truncate text-sm font-semibold text-slate-900 group-hover:text-emerald-700 sm:text-base"
+                                }
+                                title={meeting.title}
+                              >
+                                {meeting.title}
+                              </h4>
+
+                            </div>
+
+
+                            {/* =================================================
+                                GIỜ + ĐỊA ĐIỂM
+                            ================================================== */}
+
+                            <div className="mt-1.5 flex min-w-0 items-center gap-x-3 text-[10px] text-slate-400 sm:gap-x-5 sm:text-xs">
+
+                              <span className="shrink-0">
+
+                                🕐{" "}
+
+                                {formatTime(
+                                  meeting.start_time
+                                )}
+
+                                {meeting.end_time &&
+                                  ` – ${formatTime(
+                                    meeting.end_time
+                                  )}`}
+
+                              </span>
+
+
+                              <span className="min-w-0 truncate">
+
+                                📍{" "}
+
+                                {meeting.location ||
+                                  "Chưa cập nhật địa điểm"}
+
+                              </span>
+
+                            </div>
+
+
+                            {/* =================================================
+                                TRẠNG THÁI THAM DỰ
+                            ================================================== */}
+
+                            <div className="mt-1.5">
+
+                              <span
+                                className={
+                                  meetingEnded
+                                    ? "inline-flex rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-400 sm:text-xs"
+                                    : `inline-flex rounded-md border px-2 py-1 text-[10px] font-medium sm:text-xs ${getAttendanceClass(
+                                        meeting.attendance_status
+                                      )}`
+                                }
+                              >
+                                {meetingEnded
+                                  ? "Đã kết thúc"
+                                  : getAttendanceLabel(
+                                      meeting.attendance_status
+                                    )}
+                              </span>
+
+                            </div>
+
+                          </div>
+
+
+                          {/* =================================================
+                              MŨI TÊN
+                          ================================================== */}
+
+                          <div
+                            className={
+                              meetingEnded
+                                ? "shrink-0 text-base text-slate-300 sm:text-lg"
+                                : "shrink-0 text-base text-slate-300 transition group-hover:text-emerald-600 sm:text-lg"
+                            }
+                          >
+                            →
                           </div>
 
                         </div>
 
-
-                        {/* =================================================
-                            MŨI TÊN
-                        ================================================== */}
-
-                        <div className="shrink-0 text-base text-slate-300 transition group-hover:text-emerald-600 sm:text-lg">
-
-                          →
-
-                        </div>
-
-                      </div>
-
-                    </Link>
-
-                  ))}
+                      </Link>
+                    );
+                  })}
 
               </div>
 
