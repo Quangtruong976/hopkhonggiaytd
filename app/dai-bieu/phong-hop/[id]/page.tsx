@@ -91,15 +91,18 @@ export default function DaiBieuPhongHopChiTietPage() {
 
   /*
    * URL:
-   * /dai-bieu/phong-hop/12
+   * /dai-bieu/phong-hop/1
    *
-   * "12" là ID thật của cuộc họp
-   * trong bảng meetings.
+   * "1" là số thứ tự cuộc họp,
+   * KHÔNG phải meetings.id.
    */
-  const meetingIdFromUrl = Number(params.id);
+  const meetingOrder = Number(params.id);
 
   /*
    * ID thật trong database.
+   *
+   * Sau khi tìm được cuộc họp theo số thứ tự,
+   * biến này sẽ chứa meetings.id thật.
    */
   const [meetingId, setMeetingId] =
     useState<number | null>(null);
@@ -209,11 +212,11 @@ export default function DaiBieuPhongHopChiTietPage() {
 
   useEffect(() => {
     if (
-      !Number.isInteger(meetingIdFromUrl) ||
-      meetingIdFromUrl < 1
+      !Number.isInteger(meetingOrder) ||
+      meetingOrder < 1
     ) {
       setError(
-        "ID cuộc họp không hợp lệ."
+        "Số thứ tự cuộc họp không hợp lệ."
       );
 
       setLoading(false);
@@ -221,7 +224,7 @@ export default function DaiBieuPhongHopChiTietPage() {
     }
 
     loadMeeting();
-  }, [meetingIdFromUrl]);
+  }, [meetingOrder]);
 
   /* =========================================================
      LOAD MEETING
@@ -269,20 +272,12 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         2. LẤY TRỰC TIẾP CUỘC HỌP THEO ID THẬT
-         
-         URL:
-         /dai-bieu/phong-hop/12
-
-         12 = meetings.id
-         
-         Không còn lấy toàn bộ cuộc họp,
-         không còn sắp xếp và quy đổi số thứ tự.
+         2. LẤY TOÀN BỘ CUỘC HỌP ĐỂ XÁC ĐỊNH SỐ THỨ TỰ
       ===================================================== */
 
       const {
-        data: selectedMeeting,
-        error: meetingError,
+        data: allMeetings,
+        error: allMeetingsError,
       } = await supabase
         .from("meetings")
         .select(`
@@ -291,30 +286,98 @@ export default function DaiBieuPhongHopChiTietPage() {
           status,
           meeting_date,
           start_time
-        `)
-        .eq(
-          "id",
-          meetingIdFromUrl
-        )
-        .maybeSingle();
+        `);
 
-      if (meetingError) {
+      if (
+        allMeetingsError ||
+        !allMeetings
+      ) {
         console.error(
-          "LỖI TẢI CUỘC HỌP:",
-          meetingError
+          "LỖI TẢI DANH SÁCH CUỘC HỌP:",
+          allMeetingsError
         );
 
         setError(
-          `Không thể tải cuộc họp: ${meetingError.message}`
+          allMeetingsError?.message ||
+            "Không thể tải danh sách cuộc họp."
         );
 
         setLoading(false);
         return;
       }
 
+      /* =====================================================
+         3. SẮP XẾP THỨ TỰ CUỘC HỌP
+         
+         Cùng nguyên tắc với trang quản trị:
+
+         - Cuộc họp chưa kết thúc trước
+         - Ngày mới trước
+         - Giờ mới trước
+         - ID lớn trước nếu trùng
+      ===================================================== */
+
+      const sortedMeetings =
+        [...allMeetings].sort(
+          (a, b) => {
+            const aFinished =
+              a.status === "Đã kết thúc";
+
+            const bFinished =
+              b.status === "Đã kết thúc";
+
+            if (
+              aFinished !== bFinished
+            ) {
+              return aFinished
+                ? 1
+                : -1;
+            }
+
+            const aDate =
+              a.meeting_date || "";
+
+            const bDate =
+              b.meeting_date || "";
+
+            if (
+              aDate !== bDate
+            ) {
+              return bDate.localeCompare(
+                aDate
+              );
+            }
+
+            const aTime =
+              a.start_time || "";
+
+            const bTime =
+              b.start_time || "";
+
+            if (
+              aTime !== bTime
+            ) {
+              return bTime.localeCompare(
+                aTime
+              );
+            }
+
+            return b.id - a.id;
+          }
+        );
+
+      /* =====================================================
+         4. TÌM CUỘC HỌP THEO SỐ THỨ TỰ
+      ===================================================== */
+
+      const selectedMeeting =
+        sortedMeetings[
+          meetingOrder - 1
+        ];
+
       if (!selectedMeeting) {
         setError(
-          `Không tìm thấy cuộc họp có ID ${meetingIdFromUrl}.`
+          `Không tìm thấy cuộc họp số ${meetingOrder}.`
         );
 
         setLoading(false);
@@ -322,7 +385,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /*
-       * Đây là ID thật trong database.
+       * Đây mới là ID thật trong database.
        */
       const resolvedMeetingId =
         selectedMeeting.id;
@@ -339,7 +402,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       );
 
       /* =====================================================
-         3. ĐẠI BIỂU CỦA CUỘC HỌP
+         5. ĐẠI BIỂU CỦA CUỘC HỌP
       ===================================================== */
 
       const {
@@ -409,7 +472,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       );
 
       /* =====================================================
-         4. TRẠNG THÁI THAM DỰ
+         6. TRẠNG THÁI THAM DỰ
       ===================================================== */
 
       if (
@@ -436,7 +499,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         5. TÀI LIỆU ĐÃ PHÁT HÀNH
+         7. TÀI LIỆU ĐÃ PHÁT HÀNH
       ===================================================== */
 
       const {
@@ -488,7 +551,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         6. GÓP Ý / PHÁT BIỂU
+         8. GÓP Ý / PHÁT BIỂU
       ===================================================== */
 
       const {
@@ -538,7 +601,7 @@ export default function DaiBieuPhongHopChiTietPage() {
       }
 
       /* =====================================================
-         7. BIỂU QUYẾT
+         9. BIỂU QUYẾT
       ===================================================== */
 
       await loadActiveVote(
