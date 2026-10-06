@@ -1082,7 +1082,7 @@ export default function DaiBieuPage() {
                 href="/dai-bieu/phong-hop"
                 className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 sm:text-sm"
               >
-                Vào phòng hợp →
+                Vào phòng họp →
               </Link>
 
             </div>

@@ -1936,73 +1936,69 @@ export default function DaiBieuPhongHopChiTietPage() {
           HEADER
       ===================================================== */}
 
-      <header className="border-b border-emerald-600 bg-emerald-800 text-white">
+<header className="border-b border-emerald-600 bg-emerald-800 text-white">
 
-        <div className="mx-auto max-w-6xl px-5 py-4">
+<div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
 
-          <div className="flex items-center justify-between gap-5">
+  <div className="flex min-w-0 items-center">
 
-            <div className="flex items-center gap-3">
+    <div className="min-w-0">
 
-              <div>
+      <h1 className="truncate text-base font-bold tracking-wide sm:text-xl">
+        PHÒNG HỌP KHÔNG GIẤY
+      </h1>
 
-                <h1 className="text-xl font-bold tracking-wide">
-                  PHÒNG HỌP KHÔNG GIẤY
-                </h1>
+      <p className="mt-0.5 truncate text-xs text-emerald-100 sm:text-sm">
+        Trang thông tin dành cho đại biểu
+      </p>
 
-                <p className="mt-0.5 text-sm text-emerald-100">
-                  Hệ thống điều hành và quản lý công việc nội bộ Tỉnh đoàn
-                </p>
+    </div>
 
-              </div>
+  </div>
 
-            </div>
+  <Link
+    href="/dai-bieu/tai-khoan"
+    className="group hidden shrink-0 items-center gap-3 rounded-xl px-3 py-1.5 transition hover:bg-emerald-700 md:flex"
+  >
 
-            <Link
-              href="/dai-bieu/tai-khoan"
-              className="group hidden items-center gap-3 rounded-xl px-3 py-1.5 transition hover:bg-emerald-700 md:flex"
-            >
+    <div className="text-right">
 
-              <div className="text-right">
+      <p className="text-[11px] text-emerald-100">
+        Xin chào,
+      </p>
 
-                <p className="text-[11px] text-emerald-100">
-                  Xin chào,
-                </p>
+      <p className="max-w-56 truncate text-sm font-semibold text-white">
+        {currentUserName ||
+          "Đang tải..."}
+      </p>
 
-                <p className="text-sm font-semibold text-white">
-                  {currentUserName || "Đại biểu"}
-                </p>
+    </div>
 
-              </div>
+    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white transition group-hover:bg-emerald-500">
 
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white transition group-hover:bg-emerald-500">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        className="h-5 w-5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
+        />
+      </svg>
 
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  className="h-5 w-5"
-                >
+    </div>
 
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 15 0"
-                  />
+  </Link>
 
-                </svg>
+</div>
 
-              </div>
+</header>
 
-            </Link>
-
-          </div>
-
-        </div>
-
-      </header>
 
       {/* =====================================================
           CONTENT
